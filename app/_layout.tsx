@@ -1,10 +1,9 @@
-// import { useAuth } from "@clerk/clerk-expo";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CourseProvider } from "@/contexts/CourseContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import React, { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import * as SplashScreen from "expo-splash-screen";
 import { StyleSheet } from "react-native";
@@ -14,19 +13,21 @@ SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient();
 
 function RootLayoutNav() {
-  const authContext = useAuth();
-  const isLoading = authContext?.isLoading ?? true;
-
   useEffect(() => {
-    if (!isLoading) {
-      SplashScreen.hideAsync();
-    }
-  }, [isLoading]);
+    SplashScreen.hideAsync();
+  }, []);
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen
+        name="login"
+        options={{
+          headerShown: false,
+          gestureEnabled: false,
+        }}
+      />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="auth/login" options={{ headerShown: false }} />
+
       <Stack.Screen
         name="course/[id]"
         options={{
@@ -47,22 +48,22 @@ function RootLayoutNav() {
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <AuthProvider>
-      <CourseProvider>
-        {children}
-      </CourseProvider>
-    </AuthProvider>
+    <CourseProvider>
+      {children}
+    </CourseProvider>
   );
 }
 
 function ClientSafeLayout() {
 
   return (
-    <AppProviders>
-      <GestureHandlerRootView style={rootLayoutStyles.container}>
-        <RootLayoutNav />
-      </GestureHandlerRootView>
-    </AppProviders>
+    <SafeAreaProvider>
+      <AppProviders>
+        <GestureHandlerRootView style={rootLayoutStyles.container}>
+          <RootLayoutNav />
+        </GestureHandlerRootView>
+      </AppProviders>
+    </SafeAreaProvider>
   );
 }
 

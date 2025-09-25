@@ -1,6 +1,5 @@
 import VideoCard from '@/components/VideoCard';
 import { Colors, Gradients } from '@/constants/colors';
-import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -11,7 +10,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CourseDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { user } = useAuth();
     const { courses, isEnrolled, enrollInCourse, getCourseVideos } = useCourses();
 
     const course = courses.find(c => c.id === id);
@@ -31,18 +29,6 @@ export default function CourseDetailScreen() {
     }
 
     const handleEnroll = async () => {
-        if (!user) {
-            Alert.alert(
-                'Sign In Required',
-                'Please sign in to enroll in courses',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Sign In', onPress: () => router.push('/auth/login') },
-                ]
-            );
-            return;
-        }
-
         Alert.alert(
             'Enroll in Course',
             `Do you want to enroll in "${course.title}"?`,
@@ -90,7 +76,7 @@ export default function CourseDetailScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <Stack.Screen
                 options={{
                     title: course.title,
@@ -194,7 +180,7 @@ export default function CourseDetailScreen() {
                     )}
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 

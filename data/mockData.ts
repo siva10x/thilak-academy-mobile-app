@@ -124,7 +124,7 @@ export const mockVideos: Video[] = [
         id: '6',
         title: 'Cell Structure and Function',
         description: 'Detailed exploration of plant and animal cell components',
-        videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
+        videoUrl: 'https://drive.google.com/uc?export=download&id=10tqrdkpp-sLH2wuGgU9Xx2OEJmOh7i68',
         thumbnailUrl: 'https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=400&h=300&fit=crop',
         resources: [
             { title: 'Cell Diagram Worksheet', url: 'https://example.com/cell-diagram.pdf', type: 'pdf' },

@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import { Filter, Search } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
     const [searchQuery, setSearchQuery] = useState('');
@@ -26,7 +27,7 @@ export default function ExploreScreen() {
     };
 
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
@@ -94,7 +95,7 @@ export default function ExploreScreen() {
                     )}
                 </View>
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -109,8 +110,8 @@ const styles = StyleSheet.create({
     header: {
         paddingHorizontal: 24,
         paddingVertical: 32,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
+        // borderBottomLeftRadius: 24,
+        // borderBottomRightRadius: 24,
     },
     headerContent: {
         alignItems: 'flex-start',

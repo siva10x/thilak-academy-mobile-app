@@ -1,50 +1,50 @@
 import { Colors, Gradients } from '@/constants/colors';
-import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Award, BookOpen, Calendar, ChevronRight, LogOut, Settings } from 'lucide-react-native';
 import React from 'react';
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
-    const authContext = useAuth();
     const courseContext = useCourses();
-
-    const user = authContext?.user || null;
-    const logout = authContext?.logout || (() => Promise.resolve());
     const enrollments = courseContext?.enrollments || [];
 
-    const handleLogout = async () => {
-        await logout();
-        router.replace('/auth/login');
+    // Mock user data since auth is removed
+    const user = {
+        id: 'guest',
+        displayName: 'Guest User',
+        email: 'guest@example.com',
+        photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
+        createdAt: new Date('2024-01-01')
     };
-
-    if (!user) {
-        return (
-            <View style={styles.container}>
-                <View style={styles.authPrompt}>
-                    <Text style={styles.authTitle}>Account</Text>
-                    <Text style={styles.authSubtitle}>
-                        Please sign in to view your account
-                    </Text>
-                    <TouchableOpacity
-                        style={styles.signInButton}
-                        onPress={() => router.push('/auth/login')}
-                    >
-                        <LinearGradient colors={Gradients.primary} style={styles.signInGradient}>
-                            <Text style={styles.signInText}>Sign In</Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    }
 
     const activeEnrollments = enrollments.filter(e => e.status === 'active');
 
+    const handleLogout = () => {
+        Alert.alert(
+            'Logout',
+            'Are you sure you want to logout?',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Logout',
+                    style: 'destructive',
+                    onPress: () => {
+                        // Navigate back to login screen
+                        router.replace('/login' as any);
+                    },
+                },
+            ]
+        );
+    };
+
     return (
-        <View style={styles.container}>
+        <SafeAreaView style={styles.container}>
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 <LinearGradient colors={Gradients.hero} style={styles.header}>
                     <View style={styles.profileSection}>
@@ -123,12 +123,13 @@ export default function AccountScreen() {
 
                     <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
                         <LogOut size={20} color={Colors.error} />
-                        <Text style={[styles.settingText, styles.logoutText]}>Sign Out</Text>
+                        <Text style={[styles.settingText, styles.logoutText]}>Logout</Text>
                         <ChevronRight size={20} color={Colors.error} />
                     </TouchableOpacity>
+
                 </View>
             </ScrollView>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -143,8 +144,8 @@ const styles = StyleSheet.create({
     header: {
         paddingHorizontal: 24,
         paddingVertical: 32,
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
+        // borderBottomLeftRadius: 24,
+        // borderBottomRightRadius: 24,
     },
     profileSection: {
         flexDirection: 'row',

@@ -1,8 +1,7 @@
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import { Calendar, Download, ExternalLink, FileText, Play, X } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
 import { Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -10,7 +9,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VideoPlayerScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { user } = useAuth();
     const { getVideoById } = useCourses();
     const [isPlaying, setIsPlaying] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -44,13 +42,6 @@ export default function VideoPlayerScreen() {
     };
 
     const handlePlayVideo = async () => {
-        if (!user) {
-            showModal('Sign In Required', 'Please sign in to watch videos', [
-                { text: 'OK', onPress: () => setModalVisible(false) }
-            ]);
-            return;
-        }
-
         try {
             await videoRef.current?.playAsync();
             setIsPlaying(true);
@@ -66,13 +57,6 @@ export default function VideoPlayerScreen() {
             return;
         }
 
-        if (!user) {
-            showModal('Sign In Required', 'Please sign in to access resources', [
-                { text: 'OK', onPress: () => setModalVisible(false) }
-            ]);
-            return;
-        }
-
         showModal(
             'Open Resource',
             `Open "${resource.title}"?`,
@@ -84,7 +68,7 @@ export default function VideoPlayerScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container}>
+        <View style={styles.container}>
             <Stack.Screen
                 options={{
                     title: video.title,
@@ -115,22 +99,6 @@ export default function VideoPlayerScreen() {
                             </View>
                         </TouchableOpacity>
                     )}
-
-                    {!user && (
-                        <View style={styles.lockOverlay}>
-                            <View style={styles.lockContent}>
-                                <Text style={styles.lockIcon}>🔒</Text>
-                                <Text style={styles.lockTitle}>Sign In to Watch</Text>
-                                <Text style={styles.lockSubtitle}>Create an account to access this video</Text>
-                                <TouchableOpacity
-                                    style={styles.signInButton}
-                                    onPress={() => router.push('/auth/login')}
-                                >
-                                    <Text style={styles.signInText}>Sign In</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
                 </View>
 
                 <View style={styles.content}>
@@ -155,10 +123,10 @@ export default function VideoPlayerScreen() {
                                 {video.resources.length} resources available
                             </Text>
 
-                            {video.resources.map((resource) => (
+                            {video.resources.map((resource: any) => (
                                 <TouchableOpacity
                                     key={`${resource.title}-${resource.type}`}
-                                    style={[styles.resourceCard, !user && styles.lockedResource]}
+                                    style={styles.resourceCard}
                                     onPress={() => {
                                         if (resource?.title && resource?.url && resource?.type) {
                                             handleResourcePress(resource);
@@ -172,19 +140,13 @@ export default function VideoPlayerScreen() {
                                     </View>
 
                                     <View style={styles.resourceInfo}>
-                                        <Text style={[styles.resourceTitle, !user && styles.lockedText]}>
+                                        <Text style={styles.resourceTitle}>
                                             {resource.title}
                                         </Text>
-                                        <Text style={[styles.resourceType, !user && styles.lockedText]}>
+                                        <Text style={styles.resourceType}>
                                             {resource.type.toUpperCase()}
                                         </Text>
                                     </View>
-
-                                    {!user && (
-                                        <View style={styles.resourceLock}>
-                                            <Text style={styles.lockEmoji}>🔒</Text>
-                                        </View>
-                                    )}
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -234,7 +196,7 @@ export default function VideoPlayerScreen() {
                     </View>
                 </View>
             </Modal>
-        </SafeAreaView>
+        </View>
     );
 }
 
@@ -299,47 +261,7 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 8,
     },
-    lockOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-    },
-    lockContent: {
-        alignItems: 'center',
-        padding: 24,
-    },
-    lockIcon: {
-        fontSize: 48,
-        marginBottom: 16,
-    },
-    lockTitle: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: Colors.surface,
-        marginBottom: 8,
-    },
-    lockSubtitle: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.8)',
-        textAlign: 'center',
-        marginBottom: 20,
-    },
-    signInButton: {
-        backgroundColor: Colors.primary,
-        paddingHorizontal: 24,
-        paddingVertical: 12,
-        borderRadius: 24,
-    },
-    signInText: {
-        color: Colors.surface,
-        fontSize: 16,
-        fontWeight: '600',
-    },
+
     content: {
         padding: 20,
     },
@@ -399,9 +321,7 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 4,
     },
-    lockedResource: {
-        opacity: 0.6,
-    },
+
     resourceIcon: {
         width: 40,
         height: 40,
@@ -425,18 +345,7 @@ const styles = StyleSheet.create({
         color: Colors.textSecondary,
         fontWeight: '500',
     },
-    lockedText: {
-        color: Colors.textLight,
-    },
-    resourceLock: {
-        width: 24,
-        height: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    lockEmoji: {
-        fontSize: 16,
-    },
+
     errorContainer: {
         flex: 1,
         justifyContent: 'center',

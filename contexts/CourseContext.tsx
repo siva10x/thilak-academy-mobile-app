@@ -1,10 +1,7 @@
 import { mockCourses, mockCourseVideos, mockEnrollments, mockVideos } from '@/data/mockData';
 import { Course, Enrollment, Video } from '@/types';
-import createContextHook from '@nkzw/create-context-hook';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
-import { Platform } from 'react-native';
-import { useAuth } from './AuthContext';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface CourseContextType {
     courses: Course[];
@@ -17,26 +14,21 @@ interface CourseContextType {
     getVideoById: (videoId: string) => Video | undefined;
 }
 
-export const [CourseProvider, useCourses] = createContextHook((): CourseContextType => {
-    const authContext = useAuth();
-    const user = authContext?.user || null;
+const CourseContext = createContext<CourseContextType | undefined>(undefined);
+
+export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [courses] = useState<Course[]>(mockCourses);
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        if (user) {
-            loadEnrollments();
-        } else {
-            setEnrollments([]);
-            setIsLoading(false);
-        }
-    }, [user]);
+        loadEnrollments();
+    }, []);
 
     const loadEnrollments = async () => {
         try {
             let stored: string | null = null;
-            stored = await AsyncStorage.getItem(`enrollments_${user?.id}`);
+            stored = await AsyncStorage.getItem('enrollments_guest');
             if (stored) {
                 const parsedEnrollments = JSON.parse(stored).map((e: any) => ({
                     ...e,
@@ -47,7 +39,7 @@ export const [CourseProvider, useCourses] = createContextHook((): CourseContextT
             } else {
                 // Load mock enrollments for demo
                 setEnrollments(mockEnrollments);
-                await AsyncStorage.setItem(`enrollments_${user?.id}`, JSON.stringify(mockEnrollments));
+                await AsyncStorage.setItem('enrollments_guest', JSON.stringify(mockEnrollments));
             }
         } catch (error) {
             console.error('Error loading enrollments:', error);
@@ -58,7 +50,7 @@ export const [CourseProvider, useCourses] = createContextHook((): CourseContextT
 
     const saveEnrollments = async (newEnrollments: Enrollment[]) => {
         try {
-            await AsyncStorage.setItem(`enrollments_${user?.id}`, JSON.stringify(newEnrollments));
+            await AsyncStorage.setItem('enrollments_guest', JSON.stringify(newEnrollments));
             setEnrollments(newEnrollments);
         } catch (error) {
             console.error('Error saving enrollments:', error);
@@ -66,11 +58,9 @@ export const [CourseProvider, useCourses] = createContextHook((): CourseContextT
     };
 
     const enrollInCourse = async (courseId: string) => {
-        if (!user) return;
-
         const newEnrollment: Enrollment = {
             id: `enrollment_${Date.now()}`,
-            userId: user.id,
+            userId: 'guest',
             courseId,
             status: 'active',
             expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
@@ -82,16 +72,14 @@ export const [CourseProvider, useCourses] = createContextHook((): CourseContextT
     };
 
     const isEnrolled = (courseId: string): boolean => {
-        if (!user) return false;
         return enrollments.some(
-            e => e.courseId === courseId && e.userId === user.id && e.status === 'active'
+            e => e.courseId === courseId && e.userId === 'guest' && e.status === 'active'
         );
     };
 
     const getEnrolledCourses = (): Course[] => {
-        if (!user) return [];
         const enrolledCourseIds = enrollments
-            .filter(e => e.userId === user.id && e.status === 'active')
+            .filter(e => e.userId === 'guest' && e.status === 'active')
             .map(e => e.courseId);
         return courses.filter(c => enrolledCourseIds.includes(c.id));
     };
@@ -111,7 +99,7 @@ export const [CourseProvider, useCourses] = createContextHook((): CourseContextT
         return mockVideos.find(v => v.id === videoId);
     };
 
-    return {
+    const contextValue: CourseContextType = {
         courses,
         enrollments,
         isLoading,
@@ -121,4 +109,18 @@ export const [CourseProvider, useCourses] = createContextHook((): CourseContextT
         getCourseVideos,
         getVideoById,
     };
-});
+
+    return (
+        <CourseContext.Provider value={contextValue}>
+            {children}
+        </CourseContext.Provider>
+    );
+};
+
+export const useCourses = (): CourseContextType => {
+    const context = useContext(CourseContext);
+    if (context === undefined) {
+        throw new Error('useCourses must be used within a CourseProvider');
+    }
+    return context;
+};
