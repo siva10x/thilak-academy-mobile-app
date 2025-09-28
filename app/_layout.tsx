@@ -1,3 +1,4 @@
+import { AuthProvider } from "@/contexts/AuthContext";
 import { CourseProvider } from "@/contexts/CourseContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
@@ -48,9 +49,11 @@ function RootLayoutNav() {
 
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
-    <CourseProvider>
-      {children}
-    </CourseProvider>
+    <AuthProvider>
+      <CourseProvider>
+        {children}
+      </CourseProvider>
+    </AuthProvider>
   );
 }
 

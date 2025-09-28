@@ -1,8 +1,10 @@
 import { Colors } from '@/constants/colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
@@ -14,19 +16,32 @@ import {
 } from 'react-native';
 
 export default function LoginScreen() {
+    const { signIn, isLoading, isAuthenticated } = useAuth();
     const [isLoadingGoogleLogin, setIsLoadingGoogleLogin] = useState(false);
 
-
+    // Redirect if already authenticated
+    useEffect(() => {
+        if (isAuthenticated && !isLoading) {
+            router.replace('/(tabs)');
+        }
+    }, [isAuthenticated, isLoading]);
 
     const handleGoogleLogin = async () => {
-        setIsLoadingGoogleLogin(true);
-
-        // Simulate Google login
-        setTimeout(() => {
-            setIsLoadingGoogleLogin(false);
-            // Navigate to home screen (tabs)
+        try {
+            setIsLoadingGoogleLogin(true);
+            await signIn();
+            // Navigate to home screen (tabs) on successful login
             router.replace('/(tabs)');
-        }, 2000);
+        } catch (error) {
+            console.error('Google login failed:', error);
+            Alert.alert(
+                'Login Failed',
+                'Unable to sign in with Google. Please try again.',
+                [{ text: 'OK' }]
+            );
+        } finally {
+            setIsLoadingGoogleLogin(false);
+        }
     };
 
 
@@ -56,7 +71,7 @@ export default function LoginScreen() {
                                 />
                             </View>
                         </View>
-                        <Text style={styles.appTitle}>Thilak Academy</Text>
+                        <Text style={styles.appTitle}>Dummy Title</Text>
                         <Text style={styles.subtitle}>Unlock Your Potential</Text>
                         <Text style={styles.welcomeMessage}>
                             Sign in with Google to access world-class learning content
@@ -65,13 +80,13 @@ export default function LoginScreen() {
 
                     {/* Google Login Button */}
                     <TouchableOpacity
-                        style={[styles.googleButton, isLoadingGoogleLogin && styles.buttonDisabled]}
+                        style={[styles.googleButton, (isLoadingGoogleLogin || isLoading) && styles.buttonDisabled]}
                         onPress={handleGoogleLogin}
-                        disabled={isLoadingGoogleLogin}
+                        disabled={isLoadingGoogleLogin || isLoading}
                         activeOpacity={0.9}
                     >
                         <View style={styles.googleButtonContent}>
-                            {isLoadingGoogleLogin ? (
+                            {(isLoadingGoogleLogin || isLoading) ? (
                                 <View style={styles.loadingContainer}>
                                     <ActivityIndicator size="small" color="#4285f4" />
                                     <Text style={styles.googleButtonText}>

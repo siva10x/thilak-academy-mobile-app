@@ -1,4 +1,5 @@
 import { Colors, Gradients } from '@/constants/colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -9,15 +10,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
     const courseContext = useCourses();
+    const { user, signOut } = useAuth();
     const enrollments = courseContext?.enrollments || [];
 
-    // Mock user data since auth is removed
-    const user = {
+    // Fallback user data for display
+    const displayUser = user || {
         id: 'guest',
-        displayName: 'Guest User',
+        name: 'Guest User',
         email: 'guest@example.com',
-        photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-        createdAt: new Date('2024-01-01')
+        picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
     };
 
     const activeEnrollments = enrollments.filter(e => e.status === 'active');
@@ -34,9 +35,15 @@ export default function AccountScreen() {
                 {
                     text: 'Logout',
                     style: 'destructive',
-                    onPress: () => {
-                        // Navigate back to login screen
-                        router.replace('/login' as any);
+                    onPress: async () => {
+                        try {
+                            await signOut();
+                            // Navigate back to login screen
+                            router.replace('/login' as any);
+                        } catch (error) {
+                            console.error('Logout error:', error);
+                            Alert.alert('Error', 'Failed to logout. Please try again.');
+                        }
                     },
                 },
             ]
@@ -48,12 +55,12 @@ export default function AccountScreen() {
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 <LinearGradient colors={Gradients.hero} style={styles.header}>
                     <View style={styles.profileSection}>
-                        <Image source={{ uri: user.photoUrl }} style={styles.avatar} />
+                        <Image source={{ uri: displayUser.picture }} style={styles.avatar} />
                         <View style={styles.profileInfo}>
-                            <Text style={styles.userName}>{user.displayName}</Text>
-                            <Text style={styles.userEmail}>{user.email}</Text>
+                            <Text style={styles.userName}>{displayUser.name}</Text>
+                            <Text style={styles.userEmail}>{displayUser.email}</Text>
                             <Text style={styles.joinDate}>
-                                Member since {user.createdAt.toLocaleDateString()}
+                                Member since {user ? 'recently' : 'N/A'}
                             </Text>
                         </View>
                     </View>
@@ -69,7 +76,7 @@ export default function AccountScreen() {
                     <View style={styles.statCard}>
                         <Calendar size={24} color={Colors.secondary} />
                         <Text style={styles.statNumber}>
-                            {Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24))}
+                            {user ? '1' : '0'}
                         </Text>
                         <Text style={styles.statLabel}>Days Learning</Text>
                     </View>
