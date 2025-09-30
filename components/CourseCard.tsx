@@ -63,7 +63,7 @@ export default function CourseCard({ course, isEnrolled = false, onPress }: Cour
                     <View style={styles.dateContainer}>
                         <Clock size={14} color={Colors.textSecondary} />
                         <Text style={styles.dateText}>
-                            {course.createdAt.toLocaleDateString()}
+                            {course.createdAt ? course.createdAt.toLocaleDateString() : 'Date unavailable'}
                         </Text>
                     </View>
 

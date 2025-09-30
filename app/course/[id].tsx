@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CourseDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { courses, isEnrolled, enrollInCourse, getCourseVideos } = useCourses();
+    const { courses, isEnrolled, enrollInCourse, getCourseVideos, isVideoPreviewEnabled } = useCourses();
     const [videos, setVideos] = useState<any[]>([]);
     const [videosLoading, setVideosLoading] = useState(false);
 
@@ -68,7 +68,8 @@ export default function CourseDetailScreen() {
     };
 
     const handleVideoPress = (videoId: string) => {
-        if (!enrolled) {
+        const hasPreviewAccess = isVideoPreviewEnabled(id!, videoId);
+        if (!enrolled && !hasPreviewAccess) {
             Alert.alert(
                 'Enrollment Required',
                 'Please enroll in this course to access videos',
@@ -179,33 +180,32 @@ export default function CourseDetailScreen() {
                         </View>
                     )}
 
-                    {course.courseType === 'Recording' && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Course Content</Text>
-                            <Text style={styles.sectionSubtitle}>
-                                {videosLoading ? 'Loading videos...' : `${videos.length} videos • ${enrolled ? 'Full access' : 'Preview available'}`}
-                            </Text>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Course Content</Text>
+                        <Text style={styles.sectionSubtitle}>
+                            {videosLoading ? 'Loading videos...' : `${videos.length} videos • ${enrolled ? 'Full access' : 'Preview available'}`}
+                        </Text>
 
-                            {videosLoading ? (
-                                <View style={styles.loadingContainer}>
-                                    <Text style={styles.loadingText}>Loading course content...</Text>
-                                </View>
-                            ) : videos.length > 0 ? (
-                                videos.map((video) => (
-                                    <VideoCard
-                                        key={video.id}
-                                        video={video}
-                                        onPress={() => handleVideoPress(video.id)}
-                                        isLocked={!enrolled}
-                                    />
-                                ))
-                            ) : (
-                                <View style={styles.emptyContainer}>
-                                    <Text style={styles.emptyText}>No videos available for this course.</Text>
-                                </View>
-                            )}
-                        </View>
-                    )}
+                        {videosLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <Text style={styles.loadingText}>Loading course content...</Text>
+                            </View>
+                        ) : videos.length > 0 ? (
+                            videos.map((video) => (
+                                <VideoCard
+                                    key={video.id}
+                                    video={video}
+                                    onPress={() => handleVideoPress(video.id)}
+                                    isLocked={!enrolled}
+                                    isPreviewEnabled={isVideoPreviewEnabled(id!, video.id)}
+                                />
+                            ))
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>No videos available for this course.</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </ScrollView>
         </View>

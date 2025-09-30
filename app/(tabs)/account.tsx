@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function AccountScreen() {
     const courseContext = useCourses();
     const enrollments = courseContext?.enrollments || [];
+    const courses = courseContext?.courses || [];
 
     // Mock user data since auth is removed
     const user = {
@@ -93,22 +94,27 @@ export default function AccountScreen() {
                             </Text>
                         </View>
                     ) : (
-                        activeEnrollments.map((enrollment) => (
-                            <View key={enrollment.id} style={styles.enrollmentCard}>
-                                <View style={styles.enrollmentInfo}>
-                                    <Text style={styles.enrollmentTitle}>Course ID: {enrollment.courseId}</Text>
-                                    <Text style={styles.enrollmentDate}>
-                                        Enrolled: {enrollment.enrolledAt.toLocaleDateString()}
-                                    </Text>
-                                    <Text style={styles.enrollmentExpiry}>
-                                        Expires: {enrollment.expiryDate.toLocaleDateString()}
-                                    </Text>
+                        activeEnrollments.map((enrollment) => {
+                            const course = courses.find(c => c.id === enrollment.courseId);
+                            return (
+                                <View key={enrollment.id} style={styles.enrollmentCard}>
+                                    <View style={styles.enrollmentInfo}>
+                                        <Text style={styles.enrollmentTitle}>
+                                            {course?.title || `Course ${enrollment.courseId}`}
+                                        </Text>
+                                        <Text style={styles.enrollmentDate}>
+                                            Enrolled: {enrollment.enrolledAt.toLocaleDateString()}
+                                        </Text>
+                                        <Text style={styles.enrollmentExpiry}>
+                                            Expires: {enrollment.expiryDate?.toLocaleDateString() ?? 'No expiry date'}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.statusBadge, styles.activeBadge]}>
+                                        <Text style={styles.statusText}>Active</Text>
+                                    </View>
                                 </View>
-                                <View style={[styles.statusBadge, styles.activeBadge]}>
-                                    <Text style={styles.statusText}>Active</Text>
-                                </View>
-                            </View>
-                        ))
+                            );
+                        })
                     )}
                 </View>
 

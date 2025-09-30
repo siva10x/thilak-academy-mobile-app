@@ -1,12 +1,3 @@
-export interface User {
-    id: string;
-    displayName: string;
-    email: string;
-    photoUrl: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
 export interface Course {
     id: string;
     title: string;
@@ -37,10 +28,10 @@ export interface Resource {
 }
 
 export interface CourseVideo {
-    id: string;
     courseId: string;
     videoId: string;
-    order: number;
+    displayOrder: number;
+    previewEnabled: boolean;
 }
 
 export interface Enrollment {
