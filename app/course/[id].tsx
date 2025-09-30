@@ -5,7 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, Clock, ExternalLink, Play, Users } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CourseDetailScreen() {
@@ -13,6 +13,7 @@ export default function CourseDetailScreen() {
     const { courses, isEnrolled, enrollInCourse, getCourseVideos, isVideoPreviewEnabled } = useCourses();
     const [videos, setVideos] = useState<any[]>([]);
     const [videosLoading, setVideosLoading] = useState(false);
+    const [enrolling, setEnrolling] = useState(false);
 
     const course = courses.find(c => c.id === id);
     const enrolled = isEnrolled(id!);
@@ -55,11 +56,14 @@ export default function CourseDetailScreen() {
                 {
                     text: 'Enroll',
                     onPress: async () => {
+                        setEnrolling(true);
                         try {
                             await enrollInCourse(course.id);
                             Alert.alert('Success', 'You have successfully enrolled in this course!');
                         } catch {
                             Alert.alert('Error', 'Failed to enroll. Please try again.');
+                        } finally {
+                            setEnrolling(false);
                         }
                     }
                 },
@@ -159,11 +163,19 @@ export default function CourseDetailScreen() {
 
                     {!enrolled && (
                         <View style={styles.enrollSection}>
-                            <TouchableOpacity style={styles.enrollButton} onPress={handleEnroll}>
+                            <TouchableOpacity
+                                style={styles.enrollButton}
+                                onPress={handleEnroll}
+                                disabled={enrolling}
+                            >
                                 <LinearGradient colors={Gradients.primary} style={styles.enrollGradient}>
-                                    <Text style={styles.enrollButtonText}>
-                                        {course.courseType === 'Live' ? 'Enroll & Join Live Classes' : 'Enroll Now'}
-                                    </Text>
+                                    {enrolling ? (
+                                        <ActivityIndicator size="small" color={Colors.surface} />
+                                    ) : (
+                                        <Text style={styles.enrollButtonText}>
+                                            {course.courseType === 'Live' ? 'Enroll & Join Live Classes' : 'Enroll Now'}
+                                        </Text>
+                                    )}
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>

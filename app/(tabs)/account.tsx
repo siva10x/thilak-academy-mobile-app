@@ -2,15 +2,14 @@ import { Colors, Gradients } from '@/constants/colors';
 import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { Award, BookOpen, Calendar, ChevronRight, LogOut, Settings } from 'lucide-react-native';
-import React from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Award, BookOpen, Calendar, ChevronRight, LogOut, RefreshCw, Settings } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
-    const courseContext = useCourses();
-    const enrollments = courseContext?.enrollments || [];
-    const courses = courseContext?.courses || [];
+    const { enrollments, courses, refreshData } = useCourses();
+    const [isRefreshingCache, setIsRefreshingCache] = useState(false);
 
     // Mock user data since auth is removed
     const user = {
@@ -38,6 +37,33 @@ export default function AccountScreen() {
                     onPress: () => {
                         // Navigate back to login screen
                         router.replace('/login' as any);
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleRefreshCache = async () => {
+        Alert.alert(
+            'Refresh Cache',
+            'This will reload all data from the server. Continue?',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Refresh',
+                    onPress: async () => {
+                        setIsRefreshingCache(true);
+                        try {
+                            await refreshData();
+                            Alert.alert('Success', 'Cache refreshed successfully!');
+                        } catch (error) {
+                            Alert.alert('Error', 'Failed to refresh cache. Please try again.');
+                        } finally {
+                            setIsRefreshingCache(false);
+                        }
                     },
                 },
             ]
@@ -125,6 +151,22 @@ export default function AccountScreen() {
                         <Settings size={20} color={Colors.textSecondary} />
                         <Text style={styles.settingText}>App Settings</Text>
                         <ChevronRight size={20} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.settingItem}
+                        onPress={handleRefreshCache}
+                        disabled={isRefreshingCache}
+                    >
+                        {isRefreshingCache ? (
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : (
+                            <RefreshCw size={20} color={Colors.primary} />
+                        )}
+                        <Text style={[styles.settingText, isRefreshingCache && styles.disabledText]}>
+                            {isRefreshingCache ? 'Refreshing...' : 'Refresh Cache'}
+                        </Text>
+                        <ChevronRight size={20} color={isRefreshingCache ? Colors.textLight : Colors.primary} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
@@ -347,5 +389,8 @@ const styles = StyleSheet.create({
         color: Colors.surface,
         fontSize: 16,
         fontWeight: '600',
+    },
+    disabledText: {
+        color: Colors.textLight,
     },
 });
