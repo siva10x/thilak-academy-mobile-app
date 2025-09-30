@@ -1,4 +1,4 @@
-import { mockCourses, mockCourseVideos, mockEnrollments, mockVideos } from '@/data/mockData';
+import { supabase } from '@/lib/supabase';
 import { Course, Enrollment, Video } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
@@ -10,20 +10,91 @@ interface CourseContextType {
     enrollInCourse: (courseId: string) => Promise<void>;
     isEnrolled: (courseId: string) => boolean;
     getEnrolledCourses: () => Course[];
-    getCourseVideos: (courseId: string) => Video[];
+    getCourseVideos: (courseId: string) => Promise<Video[]>;
     getVideoById: (videoId: string) => Video | undefined;
 }
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
 
 export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [courses] = useState<Course[]>(mockCourses);
+    const [courses, setCourses] = useState<Course[]>([]);
+    const [videos, setVideos] = useState<Video[]>([]);
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
-        loadEnrollments();
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        try {
+            console.log('🚀 Starting to load all data from Supabase...');
+            setIsLoading(true);
+            await Promise.all([loadCourses(), loadVideos(), loadEnrollments()]);
+            console.log('🎉 All data loaded successfully from Supabase');
+        } catch (error) {
+            console.error('❌ Error loading data from Supabase:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const loadCourses = async () => {
+        try {
+            console.log('🔄 Loading courses from Supabase...');
+            const { data, error } = await supabase
+                .from('courses')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const formattedCourses: Course[] = data.map(course => ({
+                id: course.id,
+                title: course.title,
+                description: course.description,
+                courseType: course.course_type,
+                thumbnailUrl: course.thumbnail_url,
+                numVideos: course.num_videos,
+                zoomLink: course.zoom_link || undefined,
+                tags: course.tags,
+                createdAt: new Date(course.created_at),
+                updatedAt: new Date(course.updated_at),
+            }));
+
+            setCourses(formattedCourses);
+            console.log(`✅ Successfully loaded ${formattedCourses.length} courses from Supabase`);
+        } catch (error) {
+            console.error('❌ Error loading courses from Supabase:', error);
+        }
+    };
+
+    const loadVideos = async () => {
+        try {
+            console.log('🔄 Loading videos from Supabase...');
+            const { data, error } = await supabase
+                .from('videos')
+                .select('*')
+                .order('uploaded_at', { ascending: false });
+
+            if (error) throw error;
+
+            const formattedVideos: Video[] = data.map(video => ({
+                id: video.id,
+                title: video.title,
+                description: video.description,
+                videoUrl: video.video_url,
+                thumbnailUrl: video.thumbnail_url,
+                resources: video.resources as any, // Type assertion for resources
+                uploadedAt: new Date(video.uploaded_at),
+            }));
+
+            setVideos(formattedVideos);
+            console.log(`✅ Successfully loaded ${formattedVideos.length} videos from Supabase`);
+        } catch (error) {
+            console.error('❌ Error loading videos from Supabase:', error);
+        }
+    };
 
     const loadEnrollments = async () => {
         try {
@@ -36,15 +107,9 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                     enrolledAt: new Date(e.enrolledAt),
                 }));
                 setEnrollments(parsedEnrollments);
-            } else {
-                // Load mock enrollments for demo
-                setEnrollments(mockEnrollments);
-                await AsyncStorage.setItem('enrollments_guest', JSON.stringify(mockEnrollments));
             }
         } catch (error) {
             console.error('Error loading enrollments:', error);
-        } finally {
-            setIsLoading(false);
         }
     };
 
@@ -84,19 +149,48 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return courses.filter(c => enrolledCourseIds.includes(c.id));
     };
 
-    const getCourseVideos = (courseId: string): Video[] => {
-        const courseVideoIds = mockCourseVideos
-            .filter(cv => cv.courseId === courseId)
-            .sort((a, b) => a.order - b.order)
-            .map(cv => cv.videoId);
+    const getCourseVideos = async (courseId: string): Promise<Video[]> => {
+        try {
+            console.log(`🔄 Loading videos for course ${courseId} from Supabase...`);
+            const { data, error } = await supabase
+                .from('course_videos')
+                .select(`
+                    display_order,
+                    videos (
+                        id,
+                        title,
+                        description,
+                        video_url,
+                        thumbnail_url,
+                        resources,
+                        uploaded_at
+                    )
+                `)
+                .eq('course_id', courseId)
+                .order('display_order', { ascending: true });
 
-        return courseVideoIds
-            .map(videoId => mockVideos.find(v => v.id === videoId))
-            .filter(Boolean) as Video[];
+            if (error) throw error;
+
+            const courseVideos = data.map((item: any) => ({
+                id: item.videos.id,
+                title: item.videos.title,
+                description: item.videos.description,
+                videoUrl: item.videos.video_url,
+                thumbnailUrl: item.videos.thumbnail_url,
+                resources: item.videos.resources,
+                uploadedAt: new Date(item.videos.uploaded_at),
+            }));
+
+            console.log(`✅ Successfully loaded ${courseVideos.length} videos for course ${courseId}`);
+            return courseVideos;
+        } catch (error) {
+            console.error(`❌ Error loading videos for course ${courseId} from Supabase:`, error);
+            return [];
+        }
     };
 
     const getVideoById = (videoId: string): Video | undefined => {
-        return mockVideos.find(v => v.id === videoId);
+        return videos.find(v => v.id === videoId);
     };
 
     const contextValue: CourseContextType = {

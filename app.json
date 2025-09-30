@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.thilak-academy-mobile-app"
+      "bundleIdentifier": "com.siva.thilak-academy-mobile-app"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +20,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.siva.thilakacademymobileapp"
     },
     "web": {
       "output": "static",

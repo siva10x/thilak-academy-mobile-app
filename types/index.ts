@@ -11,7 +11,7 @@ export interface Course {
     id: string;
     title: string;
     description: string;
-    courseType: 'Recording' | 'Live';
+    courseType: string;
     thumbnailUrl: string;
     numVideos: number;
     zoomLink?: string;
@@ -47,7 +47,7 @@ export interface Enrollment {
     id: string;
     userId: string;
     courseId: string;
-    status: 'active' | 'expired' | 'pending';
-    expiryDate: Date;
+    status: string;
+    expiryDate: Date | null;
     enrolledAt: Date;
 }
