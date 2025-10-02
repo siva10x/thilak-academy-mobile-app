@@ -25,6 +25,7 @@ interface CourseContextType {
     isLoading: boolean;
     enrollInCourse: (courseId: string) => Promise<void>;
     isEnrolled: (courseId: string) => boolean;
+    getEnrollmentStatus: (courseId: string) => 'active' | 'pending' | 'expired' | null;
     getEnrolledCourses: () => Course[];
     getCourseVideos: (courseId: string) => Promise<Video[]>;
     getVideoById: (videoId: string) => Video | undefined;
@@ -347,23 +348,73 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         }
 
         try {
-            const { data, error } = await supabase
+            // First, check if user already has an enrollment for this course
+            const { data: existingEnrollments, error: checkError } = await supabase
                 .from('enrollments')
-                .insert([{
-                    user_id: user.id,
-                    course_id: courseId,
-                    status: 'active',
-                    expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-                }] as any)
-                .select()
-                .single();
+                .select('*')
+                .eq('user_id', user.id)
+                .eq('course_id', courseId);
 
-            if (error) {
-                Alert.alert('Enrollment Error', 'Error creating enrollment');
-                throw error;
+            if (checkError) {
+                Alert.alert('Enrollment Error', 'Error checking existing enrollment');
+                throw checkError;
             }
 
-            // Refresh enrollments to include the new one
+            if (existingEnrollments && existingEnrollments.length > 0) {
+                const existingEnrollment = existingEnrollments[0] as any;
+
+                // User already has an enrollment
+                if (existingEnrollment.status === 'active') {
+                    Alert.alert('Already Enrolled', 'You are already enrolled in this course');
+                    return;
+                } else if (existingEnrollment.status === 'pending') {
+                    Alert.alert('Enrollment Pending', 'Your enrollment request is already pending approval');
+                    return;
+                } else if (existingEnrollment.status === 'expired') {
+                    // Delete the expired enrollment and create a new pending one
+                    const { error: deleteError } = await supabase
+                        .from('enrollments')
+                        .delete()
+                        .eq('id', existingEnrollment.id);
+
+                    if (deleteError) {
+                        Alert.alert('Enrollment Error', 'Error updating enrollment status');
+                        throw deleteError;
+                    }
+
+                    // Create new pending enrollment
+                    const { error: insertError } = await supabase
+                        .from('enrollments')
+                        .insert([{
+                            user_id: user.id,
+                            course_id: courseId,
+                            status: 'pending',
+                            expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+                        }] as any);
+
+                    if (insertError) {
+                        Alert.alert('Enrollment Error', 'Error creating new enrollment');
+                        throw insertError;
+                    }
+                }
+            } else {
+                // No existing enrollment, create a new one
+                const { error: insertError } = await supabase
+                    .from('enrollments')
+                    .insert([{
+                        user_id: user.id,
+                        course_id: courseId,
+                        status: 'pending',
+                        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+                    }] as any);
+
+                if (insertError) {
+                    Alert.alert('Enrollment Error', 'Error creating enrollment');
+                    throw insertError;
+                }
+            }
+
+            // Refresh enrollments to include the updated/new enrollment
             await loadEnrollments();
         } catch (error) {
             Alert.alert('Enrollment Error', 'Failed to enroll in course');
@@ -378,10 +429,18 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         );
     };
 
+    const getEnrollmentStatus = (courseId: string): 'active' | 'pending' | 'expired' | null => {
+        if (!user?.id) return null;
+        const enrollment = enrollments.find(
+            e => e.courseId === courseId && e.userId === user.id
+        );
+        return enrollment ? enrollment.status : null;
+    };
+
     const getEnrolledCourses = (): Course[] => {
         if (!user?.id) return [];
         const enrolledCourseIds = enrollments
-            .filter(e => e.userId === user.id && e.status === 'active')
+            .filter(e => e.userId === user.id && (e.status === 'active' || e.status === 'pending'))
             .map(e => e.courseId);
         return courses.filter(c => enrolledCourseIds.includes(c.id));
     };
@@ -476,6 +535,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         isLoading,
         enrollInCourse,
         isEnrolled,
+        getEnrollmentStatus,
         getEnrolledCourses,
         getCourseVideos,
         getVideoById,

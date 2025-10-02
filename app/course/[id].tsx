@@ -10,13 +10,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CourseDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { courses, isEnrolled, enrollInCourse, getCourseVideos, isVideoPreviewEnabled } = useCourses();
+    const { courses, isEnrolled, enrollInCourse, getCourseVideos, isVideoPreviewEnabled, getEnrollmentStatus } = useCourses();
     const [videos, setVideos] = useState<any[]>([]);
     const [videosLoading, setVideosLoading] = useState(false);
     const [enrolling, setEnrolling] = useState(false);
 
     const course = courses.find(c => c.id === id);
     const enrolled = isEnrolled(id!);
+    const enrollmentStatus = getEnrollmentStatus(id!);
 
     const loadVideos = useCallback(async () => {
         if (!id) return;
@@ -59,7 +60,7 @@ export default function CourseDetailScreen() {
                         setEnrolling(true);
                         try {
                             await enrollInCourse(course.id);
-                            Alert.alert('Success', 'You have successfully enrolled in this course!');
+                            Alert.alert('Enrollment Submitted', 'Your enrollment request has been submitted and is pending approval.');
                         } catch {
                             Alert.alert('Error', 'Failed to enroll. Please try again.');
                         } finally {
@@ -73,23 +74,27 @@ export default function CourseDetailScreen() {
 
     const handleVideoPress = (videoId: string) => {
         const hasPreviewAccess = isVideoPreviewEnabled(id!, videoId);
-        if (!enrolled && !hasPreviewAccess) {
-            Alert.alert(
-                'Enrollment Required',
-                'Please enroll in this course to access videos',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Enroll Now', onPress: handleEnroll },
-                ]
-            );
+        if (enrollmentStatus !== 'active' && !hasPreviewAccess) {
+            if (enrollmentStatus === 'pending') {
+                Alert.alert('Enrollment Pending', 'Your enrollment is pending approval. You can only access preview videos.');
+            } else {
+                Alert.alert(
+                    'Enrollment Required',
+                    'Please enroll in this course to access videos',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Enroll Now', onPress: handleEnroll },
+                    ]
+                );
+            }
             return;
         }
         router.push(`/video/${videoId}`);
     };
 
     const handleJoinLiveClass = () => {
-        if (!enrolled) {
-            Alert.alert('Enrollment Required', 'Please enroll to join live classes');
+        if (enrollmentStatus !== 'active') {
+            Alert.alert('Active Enrollment Required', 'Please wait for your enrollment to be approved to join live classes');
             return;
         }
 
@@ -115,10 +120,17 @@ export default function CourseDetailScreen() {
                         style={styles.bannerOverlay}
                     />
 
-                    {enrolled && (
+                    {enrollmentStatus === 'active' && (
                         <View style={styles.enrolledBadge}>
                             <CheckCircle size={20} color={Colors.surface} />
                             <Text style={styles.enrolledText}>Enrolled</Text>
+                        </View>
+                    )}
+
+                    {enrollmentStatus === 'pending' && (
+                        <View style={styles.pendingBadge}>
+                            <Clock size={20} color={Colors.surface} />
+                            <Text style={styles.pendingText}>Enrollment Pending</Text>
                         </View>
                     )}
 
@@ -161,7 +173,7 @@ export default function CourseDetailScreen() {
                         </View>
                     </View>
 
-                    {!enrolled && (
+                    {(enrollmentStatus === null || (enrollmentStatus !== 'active' && enrollmentStatus !== 'pending')) && (
                         <View style={styles.enrollSection}>
                             <TouchableOpacity
                                 style={styles.enrollButton}
@@ -181,7 +193,23 @@ export default function CourseDetailScreen() {
                         </View>
                     )}
 
-                    {course.courseType === 'Live' && enrolled && (
+                    {enrollmentStatus === 'pending' && (
+                        <View style={styles.enrollSection}>
+                            <TouchableOpacity
+                                style={[styles.enrollButton, styles.disabledButton]}
+                                disabled={true}
+                            >
+                                <LinearGradient colors={['#9ca3af', '#6b7280']} style={styles.enrollGradient}>
+                                    <Clock size={20} color={Colors.surface} />
+                                    <Text style={styles.enrollButtonText}>
+                                        Enrollment Pending
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {course.courseType === 'Live' && enrollmentStatus === 'active' && (
                         <View style={styles.liveSection}>
                             <TouchableOpacity style={styles.joinButton} onPress={handleJoinLiveClass}>
                                 <LinearGradient colors={Gradients.secondary} style={styles.joinGradient}>
@@ -195,7 +223,7 @@ export default function CourseDetailScreen() {
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>Course Content</Text>
                         <Text style={styles.sectionSubtitle}>
-                            {videosLoading ? 'Loading videos...' : `${videos.length} videos • ${enrolled ? 'Full access' : 'Preview available'}`}
+                            {videosLoading ? 'Loading videos...' : `${videos.length} videos • ${enrollmentStatus === 'active' ? 'Full access' : enrollmentStatus === 'pending' ? 'Preview only (enrollment pending)' : 'Preview available'}`}
                         </Text>
 
                         {videosLoading ? (
@@ -208,7 +236,7 @@ export default function CourseDetailScreen() {
                                     key={video.id}
                                     video={video}
                                     onPress={() => handleVideoPress(video.id)}
-                                    isLocked={!enrolled}
+                                    isLocked={enrollmentStatus !== 'active'}
                                     isPreviewEnabled={isVideoPreviewEnabled(id!, video.id)}
                                 />
                             ))
@@ -347,6 +375,26 @@ const styles = StyleSheet.create({
     enrollButtonText: {
         color: Colors.surface,
         fontSize: 16,
+        fontWeight: '600',
+    },
+    disabledButton: {
+        opacity: 0.6,
+    },
+    pendingBadge: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: '#f59e0b',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    pendingText: {
+        color: Colors.surface,
+        fontSize: 14,
         fontWeight: '600',
     },
     liveSection: {

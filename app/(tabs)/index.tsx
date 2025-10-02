@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
-    const { getEnrolledCourses, isLoading, isEnrolled } = useCourses();
+    const { getEnrolledCourses, isLoading, isEnrolled, getEnrollmentStatus } = useCourses();
     const [searchQuery, setSearchQuery] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
@@ -53,6 +53,7 @@ export default function HomeScreen() {
         <CourseCard
             course={item}
             isEnrolled={isEnrolled(item.id)}
+            enrollmentStatus={getEnrollmentStatus(item.id)}
             onPress={() => handleCoursePress(item)}
         />
     );
