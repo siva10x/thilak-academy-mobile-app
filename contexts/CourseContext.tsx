@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { Course, CourseVideo, Enrollment, Video } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
 // Cache configuration
 const CACHE_KEYS = {
@@ -35,16 +36,32 @@ interface CourseContextType {
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
 
-export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface CourseProviderProps {
+    children: React.ReactNode;
+    user?: { id: string } | null;
+}
+
+export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }) => {
     const [courses, setCourses] = useState<Course[]>([]);
     const [videos, setVideos] = useState<Video[]>([]);
     const [courseVideos, setCourseVideos] = useState<CourseVideo[]>([]);
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
     useEffect(() => {
-        loadData();
-    }, []);
+        if (!hasLoaded) {
+            loadData();
+        }
+    }, [hasLoaded]);
+
+    useEffect(() => {
+        if (user?.id) {
+            loadEnrollments();
+        } else {
+            setEnrollments([]);
+        }
+    }, [user?.id]);
 
     // Cache utility functions
     const getCachedData = async function <T>(key: string): Promise<CacheData<T> | null> {
@@ -52,7 +69,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const cached = await AsyncStorage.getItem(key);
             return cached ? JSON.parse(cached) : null;
         } catch (error) {
-            console.error(`Error reading cache for ${key}:`, error);
+            Alert.alert('Cache Error', `Error reading cache for ${key}`);
             return null;
         }
     };
@@ -67,7 +84,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // Run cleanup after setting cache
             await cleanupCache();
         } catch (error) {
-            console.error(`Error writing cache for ${key}:`, error);
+            Alert.alert('Cache Error', `Error writing cache for ${key}`);
         }
     };
 
@@ -97,7 +114,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const cacheKeys = keys.filter(key => key.startsWith('cache'));
             await AsyncStorage.multiRemove(cacheKeys);
         } catch (error) {
-            console.error('Error clearing cache:', error);
+            Alert.alert('Cache Error', 'Error clearing cache');
         }
     };
 
@@ -124,7 +141,7 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 entries: cacheEntries,
             };
         } catch (error) {
-            console.error('Error getting cache info:', error);
+            Alert.alert('Cache Error', 'Error getting cache info');
             return null;
         }
     };
@@ -163,16 +180,21 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 }
             }
         } catch (error) {
-            console.error('Error cleaning up cache:', error);
+            Alert.alert('Cache Error', 'Error cleaning up cache');
         }
     };
 
     const loadData = async () => {
+        if (hasLoaded) {
+            return;
+        }
+
         try {
             setIsLoading(true);
-            await Promise.all([loadCourses(), loadVideos(), loadCourseVideos(), loadEnrollments()]);
+            await Promise.all([loadCourses(), loadVideos(), loadCourseVideos()]);
+            setHasLoaded(true);
         } catch (error) {
-            console.error('❌ Error loading data:', error);
+            Alert.alert('Loading Error', 'Error loading data');
         } finally {
             setIsLoading(false);
         }
@@ -185,12 +207,10 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 if (cachedCourses && isCacheValid(cachedCourses.timestamp)) {
                     const coursesWithDates = reviveDatesFromCache(cachedCourses.data);
                     setCourses(coursesWithDates);
-                    console.log(`📱 Loaded ${coursesWithDates.length} courses from local cache`);
                     return;
                 }
             }
 
-            console.log('🔄 Loading courses from Supabase...');
             const { data, error } = await supabase
                 .from('courses')
                 .select('*')
@@ -213,9 +233,8 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
             setCourses(formattedCourses);
             await setCachedData(CACHE_KEYS.COURSES, formattedCourses);
-            console.log(`✅ Successfully loaded ${formattedCourses.length} courses from Supabase`);
         } catch (error) {
-            console.error('❌ Error loading courses from Supabase:', error);
+            Alert.alert('Loading Error', 'Error loading courses from Database');
         }
     };
 
@@ -227,12 +246,10 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 if (cachedVideos && isCacheValid(cachedVideos.timestamp)) {
                     const videosWithDates = reviveVideoDatesFromCache(cachedVideos.data);
                     setVideos(videosWithDates);
-                    console.log(`📱 Loaded ${videosWithDates.length} videos from local cache`);
                     return;
                 }
             }
 
-            console.log('🔄 Loading videos from Supabase...');
             const { data, error } = await supabase
                 .from('videos')
                 .select('*')
@@ -252,35 +269,42 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
             setVideos(formattedVideos);
             await setCachedData(CACHE_KEYS.VIDEOS, formattedVideos);
-            console.log(`✅ Successfully loaded ${formattedVideos.length} videos from Supabase`);
         } catch (error) {
-            console.error('❌ Error loading videos from Supabase:', error);
+            Alert.alert('Loading Error', 'Error loading videos from Database');
         }
     };
 
     const loadEnrollments = async () => {
         try {
-            let stored: string | null = null;
-            stored = await AsyncStorage.getItem('enrollments_guest');
-            if (stored) {
-                const parsedEnrollments = JSON.parse(stored).map((e: any) => ({
-                    ...e,
-                    expiryDate: new Date(e.expiryDate),
-                    enrolledAt: new Date(e.enrolledAt),
+            if (user?.id) {
+                // Fetch enrollments from Supabase for authenticated user
+                const { data, error } = await supabase
+                    .from('enrollments')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('enrolled_at', { ascending: false });
+
+                if (error) {
+                    Alert.alert('Loading Error', 'Error fetching enrollments');
+                    return;
+                }
+
+                const formattedEnrollments: Enrollment[] = (data as any[]).map((enrollment: any) => ({
+                    id: enrollment.id,
+                    userId: enrollment.user_id,
+                    courseId: enrollment.course_id,
+                    status: enrollment.status as 'active' | 'expired' | 'pending',
+                    expiryDate: enrollment.expiry_date ? new Date(enrollment.expiry_date) : null,
+                    enrolledAt: new Date(enrollment.enrolled_at),
                 }));
-                setEnrollments(parsedEnrollments);
+
+                setEnrollments(formattedEnrollments);
+            } else {
+                // Clear enrollments if no authenticated user
+                setEnrollments([]);
             }
         } catch (error) {
-            console.error('Error loading enrollments:', error);
-        }
-    };
-
-    const saveEnrollments = async (newEnrollments: Enrollment[]) => {
-        try {
-            await AsyncStorage.setItem('enrollments_guest', JSON.stringify(newEnrollments));
-            setEnrollments(newEnrollments);
-        } catch (error) {
-            console.error('Error saving enrollments:', error);
+            Alert.alert('Loading Error', 'Error loading enrollments');
         }
     };
 
@@ -291,12 +315,10 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 if (cached) {
                     const parsed = JSON.parse(cached);
                     setCourseVideos(parsed);
-                    console.log(`📱 Loaded course-video relationships from local cache`);
                     return;
                 }
             }
 
-            console.log('🔄 Loading course-video relationships from Supabase...');
             const { data, error } = await supabase
                 .from('course_videos')
                 .select('course_id, video_id, display_order, preview_enabled')
@@ -314,35 +336,52 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
             setCourseVideos(courseVideoData);
             await AsyncStorage.setItem(CACHE_KEYS.COURSE_VIDEOS, JSON.stringify(courseVideoData));
-            console.log(`✅ Successfully loaded course-video relationships from Supabase`);
         } catch (error) {
-            console.error('❌ Error loading course-video relationships from Supabase:', error);
+            Alert.alert('Loading Error', 'Error loading course-video relationships from Database');
         }
     };
 
     const enrollInCourse = async (courseId: string) => {
-        const newEnrollment: Enrollment = {
-            id: `enrollment_${Date.now()}`,
-            userId: 'guest',
-            courseId,
-            status: 'active',
-            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year from now
-            enrolledAt: new Date(),
-        };
+        if (!user?.id) {
+            throw new Error('User must be authenticated to enroll in courses');
+        }
 
-        const updatedEnrollments = [...enrollments, newEnrollment];
-        await saveEnrollments(updatedEnrollments);
+        try {
+            const { data, error } = await supabase
+                .from('enrollments')
+                .insert([{
+                    user_id: user.id,
+                    course_id: courseId,
+                    status: 'active',
+                    expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+                }] as any)
+                .select()
+                .single();
+
+            if (error) {
+                Alert.alert('Enrollment Error', 'Error creating enrollment');
+                throw error;
+            }
+
+            // Refresh enrollments to include the new one
+            await loadEnrollments();
+        } catch (error) {
+            Alert.alert('Enrollment Error', 'Failed to enroll in course');
+            throw error;
+        }
     };
 
     const isEnrolled = (courseId: string): boolean => {
+        if (!user?.id) return false;
         return enrollments.some(
-            e => e.courseId === courseId && e.userId === 'guest' && e.status === 'active'
+            e => e.courseId === courseId && e.userId === user.id && e.status === 'active'
         );
     };
 
     const getEnrolledCourses = (): Course[] => {
+        if (!user?.id) return [];
         const enrolledCourseIds = enrollments
-            .filter(e => e.userId === 'guest' && e.status === 'active')
+            .filter(e => e.userId === user.id && e.status === 'active')
             .map(e => e.courseId);
         return courses.filter(c => enrolledCourseIds.includes(c.id));
     };
@@ -359,12 +398,10 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
                 // Filter already loaded videos by the video IDs for this course
                 const courseVideosFiltered = videos.filter(video => videoIds.includes(video.id));
-                console.log(`📱 Loaded ${courseVideosFiltered.length} videos for course ${courseId} from local cache`);
                 return courseVideosFiltered;
             }
 
             // Fallback to Supabase if no cached relationships
-            console.log(`�🔄 Loading videos for course ${courseId} from Supabase...`);
             const { data, error } = await supabase
                 .from('course_videos')
                 .select(`
@@ -395,10 +432,9 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 uploadedAt: new Date(item.videos.uploaded_at),
             }));
 
-            console.log(`✅ Successfully loaded ${courseVideosData.length} videos for course ${courseId} from Supabase`);
             return courseVideosData;
         } catch (error) {
-            console.error(`❌ Error loading videos for course ${courseId}:`, error);
+            Alert.alert('Loading Error', `Error loading videos for course ${courseId}`);
             return [];
         }
     };
@@ -419,14 +455,16 @@ export const CourseProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const refreshData = async () => {
         setIsLoading(true);
+        setHasLoaded(false);
         try {
             // Clear cache and reload fresh data
             await clearCache();
             await loadCourses(true);
             await loadVideos(true);
             await loadCourseVideos(true);
+            setHasLoaded(true);
         } catch (error) {
-            console.error('Error refreshing data:', error);
+            Alert.alert('Refresh Error', 'Error refreshing data');
         } finally {
             setIsLoading(false);
         }

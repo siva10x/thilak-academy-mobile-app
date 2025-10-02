@@ -153,6 +153,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: Colors.text,
+        letterSpacing: 0,
     },
     filterButton: {
         width: 48,

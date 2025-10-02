@@ -166,6 +166,35 @@ export interface Database {
                     website?: string | null
                 }
             }
+            user_sessions: {
+                Row: {
+                    id: string
+                    user_id: string
+                    session_id: string
+                    device_info: Json | null
+                    created_at: string | null
+                    last_active: string | null
+                    is_active: boolean | null
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    session_id: string
+                    device_info?: Json | null
+                    created_at?: string | null
+                    last_active?: string | null
+                    is_active?: boolean | null
+                }
+                Update: {
+                    id?: string
+                    user_id?: string
+                    session_id?: string
+                    device_info?: Json | null
+                    created_at?: string | null
+                    last_active?: string | null
+                    is_active?: boolean | null
+                }
+            }
         }
         Views: {
             [_ in never]: never

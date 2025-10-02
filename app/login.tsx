@@ -1,32 +1,121 @@
 import { Colors } from '@/constants/colors';
+import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Image,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
 
 export default function LoginScreen() {
-    const [isLoadingGoogleLogin, setIsLoadingGoogleLogin] = useState(false);
+    const [email, setEmail] = useState('');
+    const [otp, setOtp] = useState('');
+    const [isLoadingOtp, setIsLoadingOtp] = useState(false);
+    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+    const [showOtpInput, setShowOtpInput] = useState(false);
+    const [emailError, setEmailError] = useState('');
+    const [otpError, setOtpError] = useState('');
 
+    const validateEmail = (email: string) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
 
+    const handleSendOtp = async () => {
+        if (!email.trim()) {
+            setEmailError('Email is required');
+            return;
+        }
 
-    const handleGoogleLogin = async () => {
-        setIsLoadingGoogleLogin(true);
+        if (!validateEmail(email)) {
+            setEmailError('Please enter a valid email address');
+            return;
+        }
 
-        // Simulate Google login
-        setTimeout(() => {
-            setIsLoadingGoogleLogin(false);
-            // Navigate to home screen (tabs)
-            router.replace('/(tabs)');
-        }, 2000);
+        setEmailError('');
+        setIsLoadingOtp(true);
+
+        try {
+            const { error } = await supabase.auth.signInWithOtp({
+                email: email.trim().toLowerCase(),
+                options: {
+                    shouldCreateUser: true,
+                }
+            });
+
+            if (error) {
+                Alert.alert('Error', error.message);
+                return;
+            }
+
+            setShowOtpInput(true);
+            Alert.alert('Success', 'Please check your email for the verification code');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to send verification code. Please try again.');
+        } finally {
+            setIsLoadingOtp(false);
+        }
+    };
+
+    const handleVerifyOtp = async () => {
+        if (!otp.trim()) {
+            setOtpError('OTP is required');
+            return;
+        }
+
+        if (otp.length < 6) {
+            setOtpError('Please enter the complete 6-digit code');
+            return;
+        }
+
+        setOtpError('');
+        setIsVerifyingOtp(true);
+
+        try {
+            const { data, error } = await supabase.auth.verifyOtp({
+                email: email.trim().toLowerCase(),
+                token: otp.trim(),
+                type: 'email'
+            });
+
+            if (error) {
+                setOtpError('Invalid or expired code. Please try again.');
+                return;
+            }
+
+            if (data.user) {
+                // Show success message and navigate immediately
+                Alert.alert('Success', 'Login successful! Redirecting...', [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            // Navigate immediately after alert is dismissed
+                            router.replace('/(tabs)');
+                        }
+                    }
+                ]);
+
+                // Also try automatic navigation after a short delay as backup
+                setTimeout(() => {
+                    router.replace('/(tabs)');
+                }, 1000);
+            } else {
+                setOtpError('Login failed. Please try again.');
+            }
+        } catch (error) {
+            Alert.alert('Error', 'Failed to verify code. Please try again.');
+        } finally {
+            setIsVerifyingOtp(false);
+        }
     };
 
 
@@ -39,6 +128,7 @@ export default function LoginScreen() {
             enabled={true}
         >
             <View style={styles.gradient}>
+                <View style={styles.backgroundPattern} />
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
@@ -51,48 +141,142 @@ export default function LoginScreen() {
                         <View style={styles.logoContainer}>
                             <View style={styles.logoBackground}>
                                 <Image
-                                    source={{ uri: 'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=200&h=200&fit=crop&crop=center' }}
+                                    source={require('../assets/images/thilak_logo.jpg')}
                                     style={styles.logoImage}
+                                    resizeMode="contain"
                                 />
                             </View>
+                            <View style={styles.logoGlow} />
                         </View>
                         <Text style={styles.appTitle}>Thilak Academy</Text>
                         <Text style={styles.subtitle}>Unlock Your Potential</Text>
-                        <Text style={styles.welcomeMessage}>
-                            Sign in with Google to access world-class learning content
-                        </Text>
+                        {showOtpInput && (
+                            <Text style={styles.welcomeMessage}>
+                                We've sent a verification code to {email}
+                            </Text>
+                        )}
                     </View>
 
-                    {/* Google Login Button */}
-                    <TouchableOpacity
-                        style={[styles.googleButton, isLoadingGoogleLogin && styles.buttonDisabled]}
-                        onPress={handleGoogleLogin}
-                        disabled={isLoadingGoogleLogin}
-                        activeOpacity={0.9}
-                    >
-                        <View style={styles.googleButtonContent}>
-                            {isLoadingGoogleLogin ? (
-                                <View style={styles.loadingContainer}>
-                                    <ActivityIndicator size="small" color="#4285f4" />
-                                    <Text style={styles.googleButtonText}>
-                                        Signing in...
-                                    </Text>
-                                </View>
-                            ) : (
-                                <>
-                                    <View style={styles.googleIconContainer}>
-                                        <Image
-                                            source={{ uri: 'https://developers.google.com/identity/images/g-logo.png' }}
-                                            style={styles.googleIcon}
+                    {/* Login Form */}
+                    <View style={styles.formContainer}>
+                        {!showOtpInput ? (
+                            <>
+                                {/* Email Input */}
+                                <View style={styles.inputContainer}>
+                                    <Text style={styles.inputLabel}>Email Address</Text>
+                                    <View style={[
+                                        styles.inputWrapper,
+                                        emailError ? styles.inputWrapperError : null
+                                    ]}>
+                                        <TextInput
+                                            style={styles.textInput}
+                                            placeholder="Enter your email address"
+                                            value={email}
+                                            onChangeText={(text) => {
+                                                setEmail(text);
+                                                if (emailError) setEmailError('');
+                                            }}
+                                            keyboardType="email-address"
+                                            autoCapitalize="none"
+                                            autoComplete="email"
+                                            editable={!isLoadingOtp}
                                         />
                                     </View>
-                                    <Text style={styles.googleButtonText}>
-                                        Continue with Google
+                                    {emailError ? (
+                                        <Text style={styles.errorText}>{emailError}</Text>
+                                    ) : null}
+                                </View>
+
+                                {/* Send OTP Button */}
+                                <TouchableOpacity
+                                    style={[styles.primaryButton, isLoadingOtp && styles.buttonDisabled]}
+                                    onPress={handleSendOtp}
+                                    disabled={isLoadingOtp}
+                                    activeOpacity={0.9}
+                                >
+                                    <View style={styles.buttonGradient}>
+                                        {isLoadingOtp && (
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#ffffff"
+                                                style={styles.buttonLoader}
+                                            />
+                                        )}
+                                        <Text style={[styles.primaryButtonText, isLoadingOtp && styles.disabledButtonText]}>
+                                            {isLoadingOtp ? 'Sending Code...' : 'Send Verification Code'}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </>
+                        ) : (
+                            <>
+                                {/* OTP Input */}
+                                <View style={styles.inputContainer}>
+                                    <Text style={styles.inputLabel}>Verification Code</Text>
+                                    <Text style={styles.otpLabel}>
+                                        Enter the 6-digit code sent to your email
                                     </Text>
-                                </>
-                            )}
-                        </View>
-                    </TouchableOpacity>
+                                    <View style={[
+                                        styles.inputWrapper,
+                                        styles.otpInputWrapper,
+                                        otpError ? styles.inputWrapperError : null
+                                    ]}>
+                                        <TextInput
+                                            style={[styles.textInput, styles.otpInput]}
+                                            placeholder="000000"
+                                            value={otp}
+                                            onChangeText={(text) => {
+                                                setOtp(text.replace(/[^0-9]/g, ''));
+                                                if (otpError) setOtpError('');
+                                            }}
+                                            keyboardType="numeric"
+                                            maxLength={6}
+                                            editable={!isVerifyingOtp}
+                                        />
+                                    </View>
+                                    {otpError ? (
+                                        <Text style={styles.errorText}>{otpError}</Text>
+                                    ) : null}
+                                </View>
+
+                                {/* Verify OTP Button */}
+                                <TouchableOpacity
+                                    style={[styles.primaryButton, isVerifyingOtp && styles.buttonDisabled]}
+                                    onPress={handleVerifyOtp}
+                                    disabled={isVerifyingOtp}
+                                    activeOpacity={0.9}
+                                >
+                                    <View style={styles.buttonGradient}>
+                                        {isVerifyingOtp && (
+                                            <ActivityIndicator
+                                                size="small"
+                                                color="#ffffff"
+                                                style={styles.buttonLoader}
+                                            />
+                                        )}
+                                        <Text style={[styles.primaryButtonText, isVerifyingOtp && styles.disabledButtonText]}>
+                                            {isVerifyingOtp ? 'Verifying...' : 'Verify & Sign In'}
+                                        </Text>
+                                    </View>
+                                </TouchableOpacity>
+
+                                {/* Resend Button */}
+                                <TouchableOpacity
+                                    style={styles.resendButton}
+                                    onPress={() => {
+                                        setShowOtpInput(false);
+                                        setOtp('');
+                                        setOtpError('');
+                                    }}
+                                    disabled={isVerifyingOtp}
+                                >
+                                    <Text style={styles.resendButtonText}>
+                                        Didn't receive the code? Try again
+                                    </Text>
+                                </TouchableOpacity>
+                            </>
+                        )}
+                    </View>
 
                     {/* Footer */}
                     <View style={styles.footer}>
@@ -112,94 +296,111 @@ const styles = StyleSheet.create({
     },
     gradient: {
         flex: 1,
-        backgroundColor: '#ffffff',
+        backgroundColor: '#f8fafc',
+    },
+    backgroundPattern: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(102, 126, 234, 0.03)',
+        opacity: 0.7,
     },
     scrollContent: {
         flexGrow: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 24,
+        paddingHorizontal: 20,
+        paddingVertical: 40,
         minHeight: '100%',
     },
     heroSection: {
         alignItems: 'center',
-        marginBottom: 32,
+        marginBottom: 48,
         width: '100%',
     },
     logoContainer: {
         position: 'relative',
-        marginBottom: 32,
+        marginBottom: 40,
         alignItems: 'center',
     },
     logoBackground: {
-        width: 120,
-        height: 120,
-        borderRadius: 30,
+        width: 160,
+        height: 160,
+        borderRadius: 80,
         backgroundColor: '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000000',
         shadowOffset: {
             width: 0,
-            height: 8,
+            height: 4,
         },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 10,
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 5,
         overflow: 'hidden',
     },
     logoImage: {
-        width: 120,
-        height: 120,
-        borderRadius: 30,
+        width: 150,
+        height: 150,
+        borderRadius: 75,
+    },
+    logoGlow: {
+        position: 'absolute',
+        width: 170,
+        height: 170,
+        borderRadius: 85,
+        backgroundColor: 'rgba(102, 126, 234, 0.05)',
+        top: -5,
+        left: -5,
+        zIndex: -1,
     },
 
-    logo: {
-        width: 60,
-        height: 60,
-        borderRadius: 12,
-    },
     appTitle: {
-        fontSize: 38,
+        fontSize: 42,
         fontWeight: '900',
-        color: '#000000',
-        marginBottom: 12,
+        color: '#1e293b',
+        marginBottom: 8,
         textAlign: 'center',
-        letterSpacing: -1,
+        letterSpacing: -1.5,
     },
     subtitle: {
-        fontSize: 16,
+        fontSize: 18,
         fontWeight: '600',
-        color: 'rgba(0, 0, 0, 0.7)',
+        color: '#667eea',
         textAlign: 'center',
-        letterSpacing: 0.5,
-        marginBottom: 20,
-        fontStyle: 'italic',
+        letterSpacing: 0.2,
+        marginBottom: 24,
+        fontStyle: 'normal',
     },
     welcomeMessage: {
-        fontSize: 17,
-        color: 'rgba(0, 0, 0, 0.6)',
+        fontSize: 16,
+        color: '#64748b',
         textAlign: 'center',
         lineHeight: 24,
         paddingHorizontal: 32,
         fontWeight: '500',
     },
     formContainer: {
-        backgroundColor: '#f8f9fa',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
         borderRadius: 32,
         padding: 40,
-        marginBottom: 32,
-        marginHorizontal: 8,
-        shadowColor: '#000000',
+        marginBottom: 40,
+        marginHorizontal: 20,
+        width: '100%',
+        maxWidth: 400,
+        shadowColor: 'rgba(102, 126, 234, 0.3)',
         shadowOffset: {
             width: 0,
-            height: 8,
+            height: 16,
         },
-        shadowOpacity: 0.1,
-        shadowRadius: 16,
-        elevation: 10,
+        shadowOpacity: 0.25,
+        shadowRadius: 32,
+        elevation: 15,
         borderWidth: 1,
-        borderColor: '#e9ecef',
+        borderColor: 'rgba(255, 255, 255, 0.3)',
     },
     loginTitle: {
         fontSize: 28,
@@ -218,62 +419,73 @@ const styles = StyleSheet.create({
         lineHeight: 22,
     },
     inputContainer: {
-        marginBottom: 24,
+        marginBottom: 32,
+        width: '100%',
     },
     inputLabel: {
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: '600',
-        color: Colors.text,
-        marginBottom: 8,
-        marginLeft: 4,
+        color: '#374151',
+        marginBottom: 12,
+        marginLeft: 6,
     },
     otpLabel: {
-        fontSize: 14,
-        color: Colors.textSecondary,
-        marginBottom: 12,
+        fontSize: 16,
+        color: '#6b7280',
+        marginBottom: 20,
         textAlign: 'center',
-        lineHeight: 20,
+        lineHeight: 24,
+        paddingHorizontal: 8,
     },
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Colors.background,
-        borderRadius: 16,
-        borderWidth: 2,
-        borderColor: Colors.border,
-        paddingHorizontal: 20,
-        height: 60,
-    },
-    inputWrapperFocused: {
-        borderColor: Colors.primary,
-        backgroundColor: '#F8FAFC',
-        shadowColor: Colors.primary,
+        backgroundColor: 'rgba(248, 250, 252, 0.8)',
+        borderRadius: 20,
+        borderWidth: 1.5,
+        borderColor: 'rgba(203, 213, 225, 0.5)',
+        paddingHorizontal: 24,
+        paddingVertical: 4,
+        height: 72,
+        shadowColor: 'rgba(0, 0, 0, 0.05)',
         shadowOffset: {
             width: 0,
             height: 4,
         },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOpacity: 1,
+        shadowRadius: 12,
+        elevation: 3,
     },
-    inputWrapperError: {
-        borderColor: Colors.error,
-        backgroundColor: '#FEF2F2',
-        shadowColor: Colors.error,
+    inputWrapperFocused: {
+        borderColor: '#667eea',
+        backgroundColor: 'rgba(102, 126, 234, 0.08)',
+        shadowColor: '#667eea',
         shadowOffset: {
             width: 0,
-            height: 2,
+            height: 6,
         },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOpacity: 0.15,
+        shadowRadius: 16,
+        elevation: 6,
+    },
+    inputWrapperError: {
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239, 68, 68, 0.05)',
+        shadowColor: '#ef4444',
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.12,
+        shadowRadius: 12,
+        elevation: 4,
     },
     errorText: {
-        fontSize: 12,
-        color: Colors.error,
-        marginTop: 6,
-        marginLeft: 4,
-        fontWeight: '500',
+        fontSize: 13,
+        color: '#ef4444',
+        marginTop: 8,
+        marginLeft: 6,
+        fontWeight: '600',
     },
     otpInputWrapper: {
         justifyContent: 'center',
@@ -286,48 +498,53 @@ const styles = StyleSheet.create({
     },
     textInput: {
         flex: 1,
-        fontSize: 16,
-        color: Colors.text,
-        letterSpacing: 0,
+        fontSize: 18,
+        color: '#1f2937',
+        letterSpacing: 0.2,
+        fontWeight: '500',
+        paddingVertical: 4,
     },
     otpInput: {
         textAlign: 'center',
-        fontSize: 24,
-        letterSpacing: 8,
-        fontWeight: '600',
+        fontSize: 28,
+        letterSpacing: 10,
+        fontWeight: '700',
+        color: '#667eea',
     },
     eyeIcon: {
         padding: 4,
     },
     primaryButton: {
-        borderRadius: 16,
-        height: 60,
-        marginBottom: 20,
-        shadowColor: Colors.primary,
+        borderRadius: 20,
+        height: 72,
+        marginBottom: 28,
+        marginTop: 8,
+        backgroundColor: '#667eea',
+        shadowColor: '#667eea',
         shadowOffset: {
             width: 0,
-            height: 6,
+            height: 8,
         },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 12,
     },
     buttonGradient: {
         flex: 1,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 16,
-        height: 60,
+        borderRadius: 20,
+        height: 72,
     },
     buttonLoader: {
         marginRight: 8,
     },
     primaryButtonText: {
-        color: Colors.surface,
-        fontSize: 17,
+        color: '#ffffff',
+        fontSize: 19,
         fontWeight: '700',
-        letterSpacing: 0.5,
+        letterSpacing: 0.3,
     },
     disabledButtonText: {
         opacity: 0.7,
@@ -338,12 +555,15 @@ const styles = StyleSheet.create({
     },
     resendButton: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginTop: 16,
+        marginBottom: 24,
+        paddingVertical: 12,
     },
     resendButtonText: {
-        color: Colors.primary,
-        fontSize: 14,
-        fontWeight: '500',
+        color: '#667eea',
+        fontSize: 15,
+        fontWeight: '600',
+        textDecorationLine: 'underline',
     },
     divider: {
         flexDirection: 'row',
@@ -426,11 +646,11 @@ const styles = StyleSheet.create({
     },
     footerText: {
         fontSize: 13,
-        color: '#000000',
+        color: '#64748b',
         textAlign: 'center',
-        opacity: 0.5,
+        opacity: 0.8,
         lineHeight: 18,
         paddingHorizontal: 32,
-        fontWeight: '400',
+        fontWeight: '500',
     },
 });

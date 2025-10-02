@@ -70,3 +70,20 @@ CREATE POLICY "Enrollments are viewable by owner" ON enrollments FOR SELECT USIN
 
 -- Insert sample data (you can modify or remove this)
 -- Note: Replace with your actual data or run separately
+
+create table public.user_sessions (
+  id uuid not null default gen_random_uuid (),
+  user_id uuid not null,
+  session_id text not null,
+  device_info jsonb null,
+  created_at timestamp with time zone null default now(),
+  last_active timestamp with time zone null default now(),
+  is_active boolean null default true,
+  constraint user_sessions_pkey primary key (id),
+  constraint user_sessions_session_id_key unique (session_id),
+  constraint user_sessions_user_id_fkey foreign KEY (user_id) references auth.users (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create trigger on_user_session_insert
+after INSERT on user_sessions for EACH row
+execute FUNCTION handle_user_login ();
