@@ -521,6 +521,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
             await loadCourses(true);
             await loadVideos(true);
             await loadCourseVideos(true);
+            await loadEnrollments(); // Add this to refresh enrollment data
             setHasLoaded(true);
         } catch (error) {
             Alert.alert('Refresh Error', 'Error refreshing data');
