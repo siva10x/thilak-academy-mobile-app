@@ -89,7 +89,7 @@ export default function CourseDetailScreen() {
             }
             return;
         }
-        router.push(`/video/${videoId}`);
+        router.push(`/video/${videoId}?courseId=${id}`);
     };
 
     const handleJoinLiveClass = () => {

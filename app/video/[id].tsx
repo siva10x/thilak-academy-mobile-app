@@ -8,8 +8,8 @@ import { Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VideoPlayerScreen() {
-    const { id } = useLocalSearchParams<{ id: string }>();
-    const { getVideoById, isEnrolled, isVideoPreviewEnabled, getCourseIdForVideo } = useCourses();
+    const { id, courseId } = useLocalSearchParams<{ id: string; courseId?: string }>();
+    const { getVideoById, isEnrolled, isVideoPreviewEnabled } = useCourses();
     const [isPlaying, setIsPlaying] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -18,7 +18,6 @@ export default function VideoPlayerScreen() {
     const videoRef = useRef<Video>(null);
 
     const video = getVideoById(id!);
-    const courseId = getCourseIdForVideo(id!);
     const isEnrolledInCourse = courseId ? isEnrolled(courseId) : false;
     const isPreviewEnabled = courseId ? isVideoPreviewEnabled(courseId, id!) : false;
     const hasAccess = isEnrolledInCourse || isPreviewEnabled;
@@ -42,9 +41,11 @@ export default function VideoPlayerScreen() {
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorTitle}>Access Denied</Text>
                     <Text style={styles.errorSubtitle}>
-                        {isPreviewEnabled
-                            ? 'This video is not available for preview.'
-                            : 'You need to enroll in the course to access this video.'
+                        {!courseId
+                            ? 'Course information is missing. Please navigate from a course page.'
+                            : isPreviewEnabled
+                                ? 'This video is not available for preview.'
+                                : 'You need to enroll in the course to access this video.'
                         }
                     </Text>
                 </View>
