@@ -67,9 +67,7 @@ export default function AccountScreen() {
                 <LinearGradient colors={Gradients.hero} style={styles.header}>
                     <View style={styles.profileSection}>
                         <Image
-                            source={{
-                                uri: user?.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face'
-                            }}
+                            source={require('../../assets/images/avatar.png')}
                             style={styles.avatar}
                         />
                         <View style={styles.profileInfo}>

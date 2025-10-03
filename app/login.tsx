@@ -7,6 +7,7 @@ import {
     Alert,
     Image,
     KeyboardAvoidingView,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet,
@@ -94,7 +95,7 @@ export default function LoginScreen() {
 
             if (data.user) {
                 // Show success message and navigate immediately
-                Alert.alert('Success', 'Login successful! Redirecting...', [
+                Alert.alert('Success', 'Login successful!', [
                     {
                         text: 'OK',
                         onPress: () => {
@@ -118,7 +119,15 @@ export default function LoginScreen() {
         }
     };
 
+    const handleTermsPress = () => {
+        // Replace with your actual Terms of Service URL
+        Linking.openURL('https://thilaksiracademy.com/terms-of-service');
+    };
 
+    const handlePrivacyPress = () => {
+        // Replace with your actual Privacy Policy URL
+        Linking.openURL('https://thilaksiracademy.com/privacy-policy');
+    };
 
     return (
         <KeyboardAvoidingView
@@ -148,7 +157,7 @@ export default function LoginScreen() {
                             </View>
                             <View style={styles.logoGlow} />
                         </View>
-                        <Text style={styles.appTitle}>Thilak Academy</Text>
+                        <Text style={styles.appTitle}>Thilak Sir Academy</Text>
                         <Text style={styles.subtitle}>Unlock Your Potential</Text>
                         {showOtpInput && (
                             <Text style={styles.welcomeMessage}>
@@ -171,6 +180,7 @@ export default function LoginScreen() {
                                         <TextInput
                                             style={styles.textInput}
                                             placeholder="Enter your email address"
+                                            placeholderTextColor={Colors.textSecondary}
                                             value={email}
                                             onChangeText={(text) => {
                                                 setEmail(text);
@@ -224,6 +234,7 @@ export default function LoginScreen() {
                                         <TextInput
                                             style={[styles.textInput, styles.otpInput]}
                                             placeholder="000000"
+                                            placeholderTextColor={Colors.textSecondary}
                                             value={otp}
                                             onChangeText={(text) => {
                                                 setOtp(text.replace(/[^0-9]/g, ''));
@@ -280,9 +291,16 @@ export default function LoginScreen() {
 
                     {/* Footer */}
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>
-                            By continuing, you agree to our Terms of Service and Privacy Policy
-                        </Text>
+                        <Text style={styles.footerText}>By continuing, you agree to our </Text>
+                        <View style={styles.footerLinksContainer}>
+                            <TouchableOpacity onPress={handleTermsPress} activeOpacity={0.7}>
+                                <Text style={styles.footerLink}>Terms of Service</Text>
+                            </TouchableOpacity>
+                            <Text style={styles.footerText}> and </Text>
+                            <TouchableOpacity onPress={handlePrivacyPress} activeOpacity={0.7}>
+                                <Text style={styles.footerLink}>Privacy Policy</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </ScrollView>
             </View>
@@ -312,12 +330,12 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         paddingHorizontal: 20,
-        paddingVertical: 40,
+        paddingVertical: 50,
         minHeight: '100%',
     },
     heroSection: {
         alignItems: 'center',
-        marginBottom: 48,
+        marginBottom: 16,
         width: '100%',
     },
     logoContainer: {
@@ -359,20 +377,20 @@ const styles = StyleSheet.create({
     },
 
     appTitle: {
-        fontSize: 42,
-        fontWeight: '900',
+        fontSize: 38,
+        fontWeight: '800',
         color: '#1e293b',
         marginBottom: 8,
         textAlign: 'center',
         letterSpacing: -1.5,
     },
     subtitle: {
-        fontSize: 18,
+        fontSize: 22,
         fontWeight: '600',
         color: '#667eea',
         textAlign: 'center',
         letterSpacing: 0.2,
-        marginBottom: 24,
+        marginBottom: 12,
         fontStyle: 'normal',
     },
     welcomeMessage: {
@@ -386,8 +404,8 @@ const styles = StyleSheet.create({
     formContainer: {
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         borderRadius: 32,
-        padding: 40,
-        marginBottom: 40,
+        padding: 20,
+        marginBottom: 20,
         marginHorizontal: 20,
         width: '100%',
         maxWidth: 400,
@@ -402,24 +420,8 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.3)',
     },
-    loginTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#000000',
-        textAlign: 'center',
-        marginBottom: 8,
-        letterSpacing: -0.5,
-    },
-    loginSubtitle: {
-        fontSize: 16,
-        fontWeight: '500',
-        color: '#666666',
-        textAlign: 'center',
-        marginBottom: 32,
-        lineHeight: 22,
-    },
     inputContainer: {
-        marginBottom: 32,
+        marginBottom: 24,
         width: '100%',
     },
     inputLabel: {
@@ -456,18 +458,6 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         elevation: 3,
     },
-    inputWrapperFocused: {
-        borderColor: '#667eea',
-        backgroundColor: 'rgba(102, 126, 234, 0.08)',
-        shadowColor: '#667eea',
-        shadowOffset: {
-            width: 0,
-            height: 6,
-        },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 6,
-    },
     inputWrapperError: {
         borderColor: '#ef4444',
         backgroundColor: 'rgba(239, 68, 68, 0.05)',
@@ -490,19 +480,13 @@ const styles = StyleSheet.create({
     otpInputWrapper: {
         justifyContent: 'center',
     },
-    inputIcon: {
-        marginRight: 12,
-    },
-    validationIcon: {
-        marginLeft: 8,
-    },
     textInput: {
         flex: 1,
         fontSize: 18,
         color: '#1f2937',
         letterSpacing: 0.2,
         fontWeight: '500',
-        paddingVertical: 4,
+        paddingVertical: 1,
     },
     otpInput: {
         textAlign: 'center',
@@ -511,13 +495,10 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#667eea',
     },
-    eyeIcon: {
-        padding: 4,
-    },
     primaryButton: {
         borderRadius: 20,
-        height: 72,
-        marginBottom: 28,
+        height: 60,
+        marginBottom: 20,
         marginTop: 8,
         backgroundColor: '#667eea',
         shadowColor: '#667eea',
@@ -565,84 +546,10 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textDecorationLine: 'underline',
     },
-    divider: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginVertical: 24,
-    },
-    dividerLine: {
-        flex: 1,
-        height: 1,
-        backgroundColor: Colors.border,
-    },
-    dividerText: {
-        marginHorizontal: 16,
-        fontSize: 14,
-        color: Colors.textSecondary,
-    },
-    googleButton: {
-        backgroundColor: '#ffffff',
-        borderRadius: 24,
-        height: 64,
-        borderWidth: 2,
-        borderColor: '#dadce0',
-        shadowColor: '#000000',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 5,
-        marginHorizontal: 24,
-        marginBottom: 40,
-    },
-    googleButtonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100%',
-        paddingHorizontal: 24,
-    },
-    googleIconContainer: {
-        width: 28,
-        height: 28,
-        marginRight: 16,
-        borderRadius: 4,
-        overflow: 'hidden',
-    },
-    googleIcon: {
-        width: 28,
-        height: 28,
-    },
-    loadingContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    googleLoader: {
-        marginRight: 12,
-    },
-    googleButtonText: {
-        color: '#3c4043',
-        fontSize: 18,
-        fontWeight: '600',
-        letterSpacing: 0.2,
-    },
-    securityNote: {
-        alignItems: 'center',
-        marginTop: 8,
-    },
-    securityText: {
-        fontSize: 13,
-        color: '#666666',
-        textAlign: 'center',
-        fontWeight: '500',
-        opacity: 0.8,
-    },
     footer: {
         alignItems: 'center',
         marginTop: 32,
+        paddingHorizontal: 32,
     },
     footerText: {
         fontSize: 13,
@@ -650,7 +557,20 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         opacity: 0.8,
         lineHeight: 18,
-        paddingHorizontal: 32,
         fontWeight: '500',
+    },
+    footerLinksContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexWrap: 'wrap',
+        marginTop: 4,
+    },
+    footerLink: {
+        fontSize: 13,
+        color: '#667eea',
+        fontWeight: '600',
+        textDecorationLine: 'underline',
+        lineHeight: 18,
     },
 });
