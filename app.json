@@ -21,11 +21,10 @@
       },
       "package": "com.siva.thilakacademymobileapp",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false,
-      "package": "com.siva.thilakacademymobileapp"
+      "predictiveBackGestureEnabled": false
     },
     "web": {
-      "output": "server",
+      "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
