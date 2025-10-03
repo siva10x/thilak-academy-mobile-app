@@ -8,49 +8,57 @@ interface VideoCardProps {
     video: Video;
     onPress: () => void;
     isLocked?: boolean;
+    isPreviewEnabled?: boolean;
 }
 
-export default function VideoCard({ video, onPress, isLocked = false }: VideoCardProps) {
+export default function VideoCard({ video, onPress, isLocked = false, isPreviewEnabled = false }: VideoCardProps) {
+    // Video is accessible if user is enrolled OR video has preview enabled
+    const isAccessible = !isLocked || isPreviewEnabled;
     return (
         <TouchableOpacity
-            style={[styles.container, isLocked && styles.lockedContainer]}
+            style={[styles.container, !isAccessible && styles.lockedContainer]}
             onPress={onPress}
             activeOpacity={0.8}
         >
             <View style={styles.thumbnailContainer}>
                 <Image source={{ uri: video.thumbnailUrl }} style={styles.thumbnail} />
                 <View style={styles.playOverlay}>
-                    <View style={[styles.playButton, isLocked && styles.lockedPlayButton]}>
+                    <View style={[styles.playButton, !isAccessible && styles.lockedPlayButton]}>
                         <Play size={20} color={Colors.surface} fill={Colors.surface} />
                     </View>
                 </View>
-                {isLocked && (
+                {!isAccessible && (
                     <View style={styles.lockOverlay}>
                         <Text style={styles.lockText}>🔒</Text>
+                    </View>
+                )}
+                {isPreviewEnabled && isLocked && (
+                    <View style={styles.previewOverlay}>
+                        <Text style={styles.previewText}>👁️ Preview</Text>
                     </View>
                 )}
             </View>
 
             <View style={styles.content}>
-                <Text style={[styles.title, isLocked && styles.lockedText]} numberOfLines={2}>
+                <Text style={[styles.title, !isAccessible && styles.lockedText]} numberOfLines={2}>
                     {video.title}
                 </Text>
-                <Text style={[styles.description, isLocked && styles.lockedText]} numberOfLines={2}>
+                <Text style={[styles.description, !isAccessible && styles.lockedText]} numberOfLines={2}>
                     {video.description}
                 </Text>
 
                 <View style={styles.footer}>
                     <View style={styles.dateContainer}>
-                        <Clock size={14} color={isLocked ? Colors.textLight : Colors.textSecondary} />
-                        <Text style={[styles.dateText, isLocked && styles.lockedText]}>
+                        <Clock size={14} color={!isAccessible ? Colors.textLight : Colors.textSecondary} />
+                        <Text style={[styles.dateText, !isAccessible && styles.lockedText]}>
                             {video.uploadedAt.toLocaleDateString()}
                         </Text>
                     </View>
 
                     {video.resources.length > 0 && (
                         <View style={styles.resourcesContainer}>
-                            <FileText size={14} color={isLocked ? Colors.textLight : Colors.textSecondary} />
-                            <Text style={[styles.resourcesText, isLocked && styles.lockedText]}>
+                            <FileText size={14} color={!isAccessible ? Colors.textLight : Colors.textSecondary} />
+                            <Text style={[styles.resourcesText, !isAccessible && styles.lockedText]}>
                                 {video.resources.length} Resources
                             </Text>
                         </View>
@@ -168,5 +176,19 @@ const styles = StyleSheet.create({
     resourcesText: {
         fontSize: 12,
         color: Colors.textSecondary,
+    },
+    previewOverlay: {
+        position: 'absolute',
+        top: 4,
+        left: 4,
+        backgroundColor: Colors.primary,
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+    previewText: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: Colors.surface,
     },
 });

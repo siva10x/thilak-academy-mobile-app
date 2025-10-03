@@ -1,118 +1,115 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import GoogleAuthService, { GoogleUser } from '../services/googleAuth';
+import { supabase } from '@/lib/supabase';
+import { Session, User } from '@supabase/supabase-js';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 
 interface AuthContextType {
-    user: GoogleUser | null;
+    user: User | null;
+    session: Session | null;
     isLoading: boolean;
-    isAuthenticated: boolean;
-    signIn: () => Promise<void>;
     signOut: () => Promise<void>;
-    refreshAuth: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({
+    user: null,
+    session: null,
+    isLoading: true,
+    signOut: async () => { },
+});
 
-interface AuthProviderProps {
-    children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-    const [user, setUser] = useState<GoogleUser | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    // Initialize auth state on mount
-    useEffect(() => {
-        initializeAuth();
-    }, []);
-
-    const initializeAuth = async () => {
-        try {
-            setIsLoading(true);
-
-            // Add a small delay to ensure AsyncStorage is ready
-            await new Promise(resolve => setTimeout(resolve, 100));
-
-            // Check if user is already signed in
-            const currentUser = GoogleAuthService.getCurrentUser();
-            const isSignedIn = GoogleAuthService.isSignedIn();
-
-            console.log('Auth initialization - User:', currentUser?.email, 'Signed in:', isSignedIn);
-
-            if (currentUser && isSignedIn) {
-                setUser(currentUser);
-            }
-        } catch (error) {
-            console.error('Error initializing auth:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const signIn = async () => {
-        try {
-            setIsLoading(true);
-            const user = await GoogleAuthService.signIn();
-            console.log('Sign in successful:', user.email);
-            setUser(user);
-
-            // Force a small delay to ensure state is updated
-            await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (error) {
-            console.error('Error signing in:', error);
-            throw error;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const signOut = async () => {
-        try {
-            setIsLoading(true);
-            await GoogleAuthService.signOut();
-            setUser(null);
-        } catch (error) {
-            console.error('Error signing out:', error);
-            throw error;
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const refreshAuth = async () => {
-        try {
-            await GoogleAuthService.refreshToken();
-            const currentUser = GoogleAuthService.getCurrentUser();
-            setUser(currentUser);
-        } catch (error) {
-            console.error('Error refreshing auth:', error);
-            // If refresh fails, sign out user
-            await signOut();
-            throw error;
-        }
-    };
-
-    const value: AuthContextType = {
-        user,
-        isLoading,
-        isAuthenticated: !!user,
-        signIn,
-        signOut,
-        refreshAuth,
-    };
-
-    return (
-        <AuthContext.Provider value={value}>
-            {children}
-        </AuthContext.Provider>
-    );
-};
-
-export const useAuth = (): AuthContextType => {
+export const useAuth = () => {
     const context = useContext(AuthContext);
-    if (context === undefined) {
+    if (!context) {
         throw new Error('useAuth must be used within an AuthProvider');
     }
     return context;
 };
 
-export default AuthContext;
+interface AuthProviderProps {
+    children: React.ReactNode;
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+    const [user, setUser] = useState<User | null>(null);
+    const [session, setSession] = useState<Session | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        let isMounted = true;
+
+        // Get initial session
+        const getInitialSession = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+
+                if (isMounted) {
+                    if (session?.user) {
+                        setSession(session);
+                        setUser(session.user);
+                    }
+                    setIsLoading(false);
+                }
+            } catch (error) {
+                console.error('Error getting initial session:', error);
+                if (isMounted) {
+                    setIsLoading(false);
+                }
+            }
+        };
+
+        getInitialSession();
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            async (event, session) => {
+                if (!isMounted) return;
+
+                // Skip initial session events to prevent loops
+                if (event === 'INITIAL_SESSION') {
+                    return;
+                }
+
+                if (session?.user) {
+                    setSession(session);
+                    setUser(session.user);
+                } else {
+                    setSession(null);
+                    setUser(null);
+                }
+            }
+        );
+
+        return () => {
+            isMounted = false;
+            subscription.unsubscribe();
+        };
+    }, []);
+
+    const signOut = async () => {
+        try {
+            setIsLoading(true);
+
+            // Sign out from Supabase
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+                console.error('Error signing out:', error);
+            }
+        } catch (error) {
+            console.error('Error during sign out:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    return (
+        <AuthContext.Provider
+            value={{
+                user,
+                session,
+                isLoading,
+                signOut,
+            }}
+        >
+            {children}
+        </AuthContext.Provider>
+    );
+}

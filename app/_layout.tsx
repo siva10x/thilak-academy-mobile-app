@@ -1,25 +1,49 @@
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { CourseProvider } from "@/contexts/CourseContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-
-import * as SplashScreen from "expo-splash-screen";
-import { StyleSheet } from "react-native";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
 
+function LoadingScreen() {
+  return (
+    <View style={rootLayoutStyles.loadingContainer}>
+      <ActivityIndicator size="large" color="#007AFF" />
+    </View>
+  );
+}
+
 function RootLayoutNav() {
+  const { isLoading, user } = useAuth();
+
   useEffect(() => {
-    SplashScreen.hideAsync();
-  }, []);
+    if (!isLoading) {
+      SplashScreen.hideAsync();
+    }
+  }, [isLoading]);
+
+  // Show loading screen while determining auth state
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
+
+
 
   return (
     <Stack screenOptions={{ headerBackTitle: "Back" }}>
+      <Stack.Screen
+        name="index"
+        options={{
+          headerShown: false,
+        }}
+      />
       <Stack.Screen
         name="login"
         options={{
@@ -47,12 +71,22 @@ function RootLayoutNav() {
   );
 }
 
+function CourseProviderWithAuth({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+
+  return (
+    <CourseProvider user={user}>
+      {children}
+    </CourseProvider>
+  );
+}
+
 function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
-      <CourseProvider>
+      <CourseProviderWithAuth>
         {children}
-      </CourseProvider>
+      </CourseProviderWithAuth>
     </AuthProvider>
   );
 }
@@ -76,7 +110,9 @@ const rootLayoutStyles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

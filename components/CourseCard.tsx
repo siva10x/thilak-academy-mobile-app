@@ -1,17 +1,18 @@
 import { Colors, Gradients } from '@/constants/colors';
 import { Course } from '@/types';
 import { LinearGradient } from 'expo-linear-gradient';
-import { CheckCircle, Clock, Play, Users } from 'lucide-react-native';
+import { AlertCircle, CheckCircle, Clock, Play, Users } from 'lucide-react-native';
 import React from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface CourseCardProps {
     course: Course;
     isEnrolled?: boolean;
+    enrollmentStatus?: 'active' | 'pending' | 'expired' | null;
     onPress: () => void;
 }
 
-export default function CourseCard({ course, isEnrolled = false, onPress }: CourseCardProps) {
+export default function CourseCard({ course, isEnrolled = false, enrollmentStatus, onPress }: CourseCardProps) {
     return (
         <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.8}>
             <View style={styles.imageContainer}>
@@ -21,10 +22,17 @@ export default function CourseCard({ course, isEnrolled = false, onPress }: Cour
                     style={styles.imageOverlay}
                 />
 
-                {isEnrolled && (
+                {enrollmentStatus === 'active' && (
                     <View style={styles.enrolledBadge}>
                         <CheckCircle size={16} color={Colors.surface} />
                         <Text style={styles.enrolledText}>Enrolled</Text>
+                    </View>
+                )}
+
+                {enrollmentStatus === 'pending' && (
+                    <View style={styles.pendingBadge}>
+                        <AlertCircle size={16} color={Colors.surface} />
+                        <Text style={styles.pendingText}>Pending</Text>
                     </View>
                 )}
 
@@ -63,7 +71,7 @@ export default function CourseCard({ course, isEnrolled = false, onPress }: Cour
                     <View style={styles.dateContainer}>
                         <Clock size={14} color={Colors.textSecondary} />
                         <Text style={styles.dateText}>
-                            {course.createdAt.toLocaleDateString()}
+                            {course.createdAt ? course.createdAt.toLocaleDateString() : 'Date unavailable'}
                         </Text>
                     </View>
 
@@ -123,6 +131,23 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     enrolledText: {
+        color: Colors.surface,
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    pendingBadge: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f59e0b', // Amber color
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+    },
+    pendingText: {
         color: Colors.surface,
         fontSize: 12,
         fontWeight: '600',

@@ -14,6 +14,7 @@ export default function ExploreScreen() {
     const courseContext = useCourses();
     const courses = courseContext?.courses || [];
     const isEnrolled = courseContext?.isEnrolled || (() => false);
+    const getEnrollmentStatus = courseContext?.getEnrollmentStatus || (() => null);
     const isLoading = courseContext?.isLoading || false;
 
     const filteredCourses = courses.filter(course =>
@@ -89,6 +90,7 @@ export default function ExploreScreen() {
                                 key={course.id}
                                 course={course}
                                 isEnrolled={isEnrolled(course.id)}
+                                enrollmentStatus={getEnrollmentStatus(course.id)}
                                 onPress={() => handleCoursePress(course.id)}
                             />
                         ))
@@ -153,6 +155,7 @@ const styles = StyleSheet.create({
         flex: 1,
         fontSize: 16,
         color: Colors.text,
+        letterSpacing: 0,
     },
     filterButton: {
         width: 48,

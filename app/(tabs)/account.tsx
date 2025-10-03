@@ -2,24 +2,15 @@ import { Colors, Gradients } from '@/constants/colors';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { Award, BookOpen, Calendar, ChevronRight, LogOut, Settings } from 'lucide-react-native';
-import React from 'react';
-import { Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Award, BookOpen, Calendar, ChevronRight, LogOut, RefreshCw, Settings } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
-    const courseContext = useCourses();
+    const { enrollments, courses, refreshData } = useCourses();
     const { user, signOut } = useAuth();
-    const enrollments = courseContext?.enrollments || [];
-
-    // Fallback user data for display
-    const displayUser = user || {
-        id: 'guest',
-        name: 'Guest User',
-        email: 'guest@example.com',
-        picture: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face',
-    };
+    const [isRefreshingCache, setIsRefreshingCache] = useState(false);
 
     const activeEnrollments = enrollments.filter(e => e.status === 'active');
 
@@ -36,13 +27,33 @@ export default function AccountScreen() {
                     text: 'Logout',
                     style: 'destructive',
                     onPress: async () => {
+                        await signOut();
+                    },
+                },
+            ]
+        );
+    };
+
+    const handleRefreshCache = async () => {
+        Alert.alert(
+            'Refresh Cache',
+            'This will reload all data from the server. Continue?',
+            [
+                {
+                    text: 'Cancel',
+                    style: 'cancel',
+                },
+                {
+                    text: 'Refresh',
+                    onPress: async () => {
+                        setIsRefreshingCache(true);
                         try {
-                            await signOut();
-                            // Navigate back to login screen
-                            router.replace('/login' as any);
+                            await refreshData();
+                            Alert.alert('Success', 'Cache refreshed successfully!');
                         } catch (error) {
-                            console.error('Logout error:', error);
-                            Alert.alert('Error', 'Failed to logout. Please try again.');
+                            Alert.alert('Error', 'Failed to refresh cache. Please try again.');
+                        } finally {
+                            setIsRefreshingCache(false);
                         }
                     },
                 },
@@ -55,12 +66,17 @@ export default function AccountScreen() {
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
                 <LinearGradient colors={Gradients.hero} style={styles.header}>
                     <View style={styles.profileSection}>
-                        <Image source={{ uri: displayUser.picture }} style={styles.avatar} />
+                        <Image
+                            source={require('../../assets/images/avatar.png')}
+                            style={styles.avatar}
+                        />
                         <View style={styles.profileInfo}>
-                            <Text style={styles.userName}>{displayUser.name}</Text>
-                            <Text style={styles.userEmail}>{displayUser.email}</Text>
+                            <Text style={styles.userName}>
+                                {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'}
+                            </Text>
+                            <Text style={styles.userEmail}>{user?.email || 'No email'}</Text>
                             <Text style={styles.joinDate}>
-                                Member since {user ? 'recently' : 'N/A'}
+                                Member since {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recently'}
                             </Text>
                         </View>
                     </View>
@@ -76,7 +92,10 @@ export default function AccountScreen() {
                     <View style={styles.statCard}>
                         <Calendar size={24} color={Colors.secondary} />
                         <Text style={styles.statNumber}>
-                            {user ? '1' : '0'}
+                            {user?.created_at
+                                ? Math.floor((Date.now() - new Date(user.created_at).getTime()) / (1000 * 60 * 60 * 24))
+                                : 0
+                            }
                         </Text>
                         <Text style={styles.statLabel}>Days Learning</Text>
                     </View>
@@ -100,22 +119,27 @@ export default function AccountScreen() {
                             </Text>
                         </View>
                     ) : (
-                        activeEnrollments.map((enrollment) => (
-                            <View key={enrollment.id} style={styles.enrollmentCard}>
-                                <View style={styles.enrollmentInfo}>
-                                    <Text style={styles.enrollmentTitle}>Course ID: {enrollment.courseId}</Text>
-                                    <Text style={styles.enrollmentDate}>
-                                        Enrolled: {enrollment.enrolledAt.toLocaleDateString()}
-                                    </Text>
-                                    <Text style={styles.enrollmentExpiry}>
-                                        Expires: {enrollment.expiryDate.toLocaleDateString()}
-                                    </Text>
+                        activeEnrollments.map((enrollment) => {
+                            const course = courses.find(c => c.id === enrollment.courseId);
+                            return (
+                                <View key={enrollment.id} style={styles.enrollmentCard}>
+                                    <View style={styles.enrollmentInfo}>
+                                        <Text style={styles.enrollmentTitle}>
+                                            {course?.title || `Course ${enrollment.courseId}`}
+                                        </Text>
+                                        <Text style={styles.enrollmentDate}>
+                                            Enrolled: {enrollment.enrolledAt.toLocaleDateString()}
+                                        </Text>
+                                        <Text style={styles.enrollmentExpiry}>
+                                            Expires: {enrollment.expiryDate?.toLocaleDateString() ?? 'No expiry date'}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.statusBadge, styles.activeBadge]}>
+                                        <Text style={styles.statusText}>Active</Text>
+                                    </View>
                                 </View>
-                                <View style={[styles.statusBadge, styles.activeBadge]}>
-                                    <Text style={styles.statusText}>Active</Text>
-                                </View>
-                            </View>
-                        ))
+                            );
+                        })
                     )}
                 </View>
 
@@ -126,6 +150,22 @@ export default function AccountScreen() {
                         <Settings size={20} color={Colors.textSecondary} />
                         <Text style={styles.settingText}>App Settings</Text>
                         <ChevronRight size={20} color={Colors.textSecondary} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.settingItem}
+                        onPress={handleRefreshCache}
+                        disabled={isRefreshingCache}
+                    >
+                        {isRefreshingCache ? (
+                            <ActivityIndicator size="small" color={Colors.primary} />
+                        ) : (
+                            <RefreshCw size={20} color={Colors.primary} />
+                        )}
+                        <Text style={[styles.settingText, isRefreshingCache && styles.disabledText]}>
+                            {isRefreshingCache ? 'Refreshing...' : 'Refresh Cache'}
+                        </Text>
+                        <ChevronRight size={20} color={isRefreshingCache ? Colors.textLight : Colors.primary} />
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.settingItem} onPress={handleLogout}>
@@ -348,5 +388,8 @@ const styles = StyleSheet.create({
         color: Colors.surface,
         fontSize: 16,
         fontWeight: '600',
+    },
+    disabledText: {
+        color: Colors.textLight,
     },
 });

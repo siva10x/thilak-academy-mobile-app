@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "thilak-academy-mobile-app",
+    "name": "Thilak Sir Academy",
     "slug": "thilak-academy-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,17 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.siva.thilak-academy-mobile-app",
-      "infoPlist": {
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLName": "google-oauth",
-            "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.711807234603-rsr495k4lmotqr73h9gfrbccaovtjhvn"
-            ]
-          }
-        ]
-      }
+      "bundleIdentifier": "com.siva.thilak-academy-mobile-app"
     },
     "android": {
       "adaptiveIcon": {
@@ -32,21 +22,7 @@
       "package": "com.siva.thilakacademymobileapp",
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "com.siva.thilakacademymobileapp"
-            }
-          ],
-          "category": [
-            "BROWSABLE",
-            "DEFAULT"
-          ]
-        }
-      ]
+      "package": "com.siva.thilakacademymobileapp"
     },
     "web": {
       "output": "server",

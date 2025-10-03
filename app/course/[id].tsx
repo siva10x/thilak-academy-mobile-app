@@ -4,17 +4,37 @@ import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { CheckCircle, Clock, ExternalLink, Play, Users } from 'lucide-react-native';
-import React from 'react';
-import { Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Image, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CourseDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { courses, isEnrolled, enrollInCourse, getCourseVideos } = useCourses();
+    const { courses, isEnrolled, enrollInCourse, getCourseVideos, isVideoPreviewEnabled, getEnrollmentStatus } = useCourses();
+    const [videos, setVideos] = useState<any[]>([]);
+    const [videosLoading, setVideosLoading] = useState(false);
+    const [enrolling, setEnrolling] = useState(false);
 
     const course = courses.find(c => c.id === id);
     const enrolled = isEnrolled(id!);
-    const videos = getCourseVideos(id!);
+    const enrollmentStatus = getEnrollmentStatus(id!);
+
+    const loadVideos = useCallback(async () => {
+        if (!id) return;
+        setVideosLoading(true);
+        try {
+            const courseVideos = await getCourseVideos(id);
+            setVideos(courseVideos);
+        } catch (error) {
+            console.error('Error loading videos:', error);
+        } finally {
+            setVideosLoading(false);
+        }
+    }, [id, getCourseVideos]);
+
+    useEffect(() => {
+        loadVideos();
+    }, [loadVideos]);
 
     if (!course) {
         return (
@@ -37,11 +57,14 @@ export default function CourseDetailScreen() {
                 {
                     text: 'Enroll',
                     onPress: async () => {
+                        setEnrolling(true);
                         try {
                             await enrollInCourse(course.id);
-                            Alert.alert('Success', 'You have successfully enrolled in this course!');
-                        } catch (error) {
+                            Alert.alert('Enrollment Submitted', 'Your enrollment request has been submitted and is pending approval.');
+                        } catch {
                             Alert.alert('Error', 'Failed to enroll. Please try again.');
+                        } finally {
+                            setEnrolling(false);
                         }
                     }
                 },
@@ -50,23 +73,28 @@ export default function CourseDetailScreen() {
     };
 
     const handleVideoPress = (videoId: string) => {
-        if (!enrolled) {
-            Alert.alert(
-                'Enrollment Required',
-                'Please enroll in this course to access videos',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Enroll Now', onPress: handleEnroll },
-                ]
-            );
+        const hasPreviewAccess = isVideoPreviewEnabled(id!, videoId);
+        if (enrollmentStatus !== 'active' && !hasPreviewAccess) {
+            if (enrollmentStatus === 'pending') {
+                Alert.alert('Enrollment Pending', 'Your enrollment is pending approval. You can only access preview videos.');
+            } else {
+                Alert.alert(
+                    'Enrollment Required',
+                    'Please enroll in this course to access videos',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Enroll Now', onPress: handleEnroll },
+                    ]
+                );
+            }
             return;
         }
         router.push(`/video/${videoId}`);
     };
 
     const handleJoinLiveClass = () => {
-        if (!enrolled) {
-            Alert.alert('Enrollment Required', 'Please enroll to join live classes');
+        if (enrollmentStatus !== 'active') {
+            Alert.alert('Active Enrollment Required', 'Please wait for your enrollment to be approved to join live classes');
             return;
         }
 
@@ -92,10 +120,17 @@ export default function CourseDetailScreen() {
                         style={styles.bannerOverlay}
                     />
 
-                    {enrolled && (
+                    {enrollmentStatus === 'active' && (
                         <View style={styles.enrolledBadge}>
                             <CheckCircle size={20} color={Colors.surface} />
                             <Text style={styles.enrolledText}>Enrolled</Text>
+                        </View>
+                    )}
+
+                    {enrollmentStatus === 'pending' && (
+                        <View style={styles.pendingBadge}>
+                            <Clock size={20} color={Colors.surface} />
+                            <Text style={styles.pendingText}>Enrollment Pending</Text>
                         </View>
                     )}
 
@@ -138,19 +173,43 @@ export default function CourseDetailScreen() {
                         </View>
                     </View>
 
-                    {!enrolled && (
+                    {(enrollmentStatus === null || (enrollmentStatus !== 'active' && enrollmentStatus !== 'pending')) && (
                         <View style={styles.enrollSection}>
-                            <TouchableOpacity style={styles.enrollButton} onPress={handleEnroll}>
+                            <TouchableOpacity
+                                style={styles.enrollButton}
+                                onPress={handleEnroll}
+                                disabled={enrolling}
+                            >
                                 <LinearGradient colors={Gradients.primary} style={styles.enrollGradient}>
+                                    {enrolling ? (
+                                        <ActivityIndicator size="small" color={Colors.surface} />
+                                    ) : (
+                                        <Text style={styles.enrollButtonText}>
+                                            {course.courseType === 'Live' ? 'Enroll & Join Live Classes' : 'Enroll Now'}
+                                        </Text>
+                                    )}
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {enrollmentStatus === 'pending' && (
+                        <View style={styles.enrollSection}>
+                            <TouchableOpacity
+                                style={[styles.enrollButton, styles.disabledButton]}
+                                disabled={true}
+                            >
+                                <LinearGradient colors={['#9ca3af', '#6b7280']} style={styles.enrollGradient}>
+                                    <Clock size={20} color={Colors.surface} />
                                     <Text style={styles.enrollButtonText}>
-                                        {course.courseType === 'Live' ? 'Enroll & Join Live Classes' : 'Enroll Now'}
+                                        Enrollment Pending
                                     </Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </View>
                     )}
 
-                    {course.courseType === 'Live' && enrolled && (
+                    {course.courseType === 'Live' && enrollmentStatus === 'active' && (
                         <View style={styles.liveSection}>
                             <TouchableOpacity style={styles.joinButton} onPress={handleJoinLiveClass}>
                                 <LinearGradient colors={Gradients.secondary} style={styles.joinGradient}>
@@ -161,23 +220,32 @@ export default function CourseDetailScreen() {
                         </View>
                     )}
 
-                    {course.courseType === 'Recording' && videos.length > 0 && (
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Course Content</Text>
-                            <Text style={styles.sectionSubtitle}>
-                                {videos.length} videos • {enrolled ? 'Full access' : 'Preview available'}
-                            </Text>
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Course Content</Text>
+                        <Text style={styles.sectionSubtitle}>
+                            {videosLoading ? 'Loading videos...' : `${videos.length} videos • ${enrollmentStatus === 'active' ? 'Full access' : enrollmentStatus === 'pending' ? 'Preview only (enrollment pending)' : 'Preview available'}`}
+                        </Text>
 
-                            {videos.map((video) => (
+                        {videosLoading ? (
+                            <View style={styles.loadingContainer}>
+                                <Text style={styles.loadingText}>Loading course content...</Text>
+                            </View>
+                        ) : videos.length > 0 ? (
+                            videos.map((video) => (
                                 <VideoCard
                                     key={video.id}
                                     video={video}
                                     onPress={() => handleVideoPress(video.id)}
-                                    isLocked={!enrolled}
+                                    isLocked={enrollmentStatus !== 'active'}
+                                    isPreviewEnabled={isVideoPreviewEnabled(id!, video.id)}
                                 />
-                            ))}
-                        </View>
-                    )}
+                            ))
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <Text style={styles.emptyText}>No videos available for this course.</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </ScrollView>
         </View>
@@ -309,6 +377,26 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    disabledButton: {
+        opacity: 0.6,
+    },
+    pendingBadge: {
+        position: 'absolute',
+        top: 20,
+        right: 20,
+        backgroundColor: '#f59e0b',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    pendingText: {
+        color: Colors.surface,
+        fontSize: 14,
+        fontWeight: '600',
+    },
     liveSection: {
         marginBottom: 24,
     },
@@ -341,6 +429,23 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     errorSubtitle: {
+        fontSize: 16,
+        color: Colors.textSecondary,
+        textAlign: 'center',
+    },
+    loadingContainer: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    loadingText: {
+        fontSize: 16,
+        color: Colors.textSecondary,
+    },
+    emptyContainer: {
+        padding: 24,
+        alignItems: 'center',
+    },
+    emptyText: {
         fontSize: 16,
         color: Colors.textSecondary,
         textAlign: 'center',

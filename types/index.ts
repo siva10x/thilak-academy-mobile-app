@@ -1,17 +1,8 @@
-export interface User {
-    id: string;
-    displayName: string;
-    email: string;
-    photoUrl: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
 export interface Course {
     id: string;
     title: string;
     description: string;
-    courseType: 'Recording' | 'Live';
+    courseType: string;
     thumbnailUrl: string;
     numVideos: number;
     zoomLink?: string;
@@ -37,17 +28,17 @@ export interface Resource {
 }
 
 export interface CourseVideo {
-    id: string;
     courseId: string;
     videoId: string;
-    order: number;
+    displayOrder: number;
+    previewEnabled: boolean;
 }
 
 export interface Enrollment {
     id: string;
     userId: string;
     courseId: string;
-    status: 'active' | 'expired' | 'pending';
-    expiryDate: Date;
+    status: 'active' | 'pending' | 'expired';
+    expiryDate: Date | null;
     enrolledAt: Date;
 }

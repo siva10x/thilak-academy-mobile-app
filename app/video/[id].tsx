@@ -9,7 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VideoPlayerScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
-    const { getVideoById } = useCourses();
+    const { getVideoById, isEnrolled, isVideoPreviewEnabled, getCourseIdForVideo } = useCourses();
     const [isPlaying, setIsPlaying] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
@@ -18,6 +18,10 @@ export default function VideoPlayerScreen() {
     const videoRef = useRef<Video>(null);
 
     const video = getVideoById(id!);
+    const courseId = getCourseIdForVideo(id!);
+    const isEnrolledInCourse = courseId ? isEnrolled(courseId) : false;
+    const isPreviewEnabled = courseId ? isVideoPreviewEnabled(courseId, id!) : false;
+    const hasAccess = isEnrolledInCourse || isPreviewEnabled;
 
     if (!video) {
         return (
@@ -26,6 +30,23 @@ export default function VideoPlayerScreen() {
                 <View style={styles.errorContainer}>
                     <Text style={styles.errorTitle}>Video Not Found</Text>
                     <Text style={styles.errorSubtitle}>The video you&apos;re looking for doesn&apos;t exist.</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
+
+    if (!hasAccess) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <Stack.Screen options={{ title: 'Access Denied' }} />
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorTitle}>Access Denied</Text>
+                    <Text style={styles.errorSubtitle}>
+                        {isPreviewEnabled
+                            ? 'This video is not available for preview.'
+                            : 'You need to enroll in the course to access this video.'
+                        }
+                    </Text>
                 </View>
             </SafeAreaView>
         );
