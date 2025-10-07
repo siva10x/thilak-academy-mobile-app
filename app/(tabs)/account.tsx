@@ -102,7 +102,7 @@ export default function AccountScreen() {
 
                     <View style={styles.statCard}>
                         <Award size={24} color={Colors.accent} />
-                        <Text style={styles.statNumber}>5</Text>
+                        <Text style={styles.statNumber}>0</Text>
                         <Text style={styles.statLabel}>Certificates</Text>
                     </View>
                 </View>

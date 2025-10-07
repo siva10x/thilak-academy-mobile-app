@@ -121,12 +121,12 @@ export default function LoginScreen() {
 
     const handleTermsPress = () => {
         // Replace with your actual Terms of Service URL
-        Linking.openURL('https://thilaksiracademy.com/terms-of-service');
+        Linking.openURL('https://www.termsfeed.com/live/d5e4a1c3-35fd-45d6-beaf-176f3a61f1e1');
     };
 
     const handlePrivacyPress = () => {
         // Replace with your actual Privacy Policy URL
-        Linking.openURL('https://thilaksiracademy.com/privacy-policy');
+        Linking.openURL('https://www.termsfeed.com/live/6366f819-6df3-41ef-82e2-58f5b3b1e7bc');
     };
 
     return (
