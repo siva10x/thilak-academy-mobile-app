@@ -17,6 +17,7 @@ export interface Video {
     description: string;
     videoUrl: string;
     thumbnailUrl: string;
+    vimeoId?: string;
     resources: Resource[];
     uploadedAt: Date;
 }

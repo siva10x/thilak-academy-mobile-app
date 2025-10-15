@@ -264,6 +264,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
                 description: video.description,
                 videoUrl: video.video_url,
                 thumbnailUrl: video.thumbnail_url,
+                vimeoId: video.vimeo_id || undefined,
                 resources: video.resources as any, // Type assertion for resources
                 uploadedAt: new Date(video.uploaded_at),
             }));
@@ -323,7 +324,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
             const { data, error } = await supabase
                 .from('course_videos')
                 .select('course_id, video_id, display_order, preview_enabled')
-                .order('course_id', { ascending: true });
+                .order('display_order', { ascending: true });
 
             if (error) throw error;
 
@@ -450,13 +451,15 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
             // Find course-video relationships for this course
             const courseVideoRelations = courseVideos.filter(cv => cv.courseId === courseId);
             if (courseVideoRelations.length > 0) {
-                // Get video IDs for this course, sorted by display order
-                const videoIds = courseVideoRelations
-                    .sort((a, b) => a.displayOrder - b.displayOrder)
-                    .map(cv => cv.videoId);
+                // Sort course-video relationships by display order
+                const sortedRelations = courseVideoRelations
+                    .sort((a, b) => a.displayOrder - b.displayOrder);
 
-                // Filter already loaded videos by the video IDs for this course
-                const courseVideosFiltered = videos.filter(video => videoIds.includes(video.id));
+                // Map to videos in the correct order
+                const courseVideosFiltered = sortedRelations
+                    .map(relation => videos.find(video => video.id === relation.videoId))
+                    .filter(video => video !== undefined) as Video[];
+
                 return courseVideosFiltered;
             }
 
@@ -472,6 +475,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
                         description,
                         video_url,
                         thumbnail_url,
+                        vimeo_id,
                         resources,
                         uploaded_at
                     )
@@ -487,6 +491,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
                 description: item.videos.description,
                 videoUrl: item.videos.video_url,
                 thumbnailUrl: item.videos.thumbnail_url,
+                vimeoId: item.videos.vimeo_id || undefined,
                 resources: item.videos.resources,
                 uploadedAt: new Date(item.videos.uploaded_at),
             }));

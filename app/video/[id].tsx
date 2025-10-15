@@ -1,21 +1,20 @@
+import DefaultVideoPlayer from '@/components/DefaultVideoPlayer';
+import VimeoPlayer from '@/components/VimeoPlayer';
 import { Colors } from '@/constants/colors';
 import { useCourses } from '@/contexts/CourseContext';
-import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Calendar, Download, ExternalLink, FileText, Play, X } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import { Calendar, Download, ExternalLink, FileText, X } from 'lucide-react-native';
+import React, { useState } from 'react';
 import { Linking, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function VideoPlayerScreen() {
     const { id, courseId } = useLocalSearchParams<{ id: string; courseId?: string }>();
     const { getVideoById, isEnrolled, isVideoPreviewEnabled } = useCourses();
-    const [isPlaying, setIsPlaying] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
     const [modalTitle, setModalTitle] = useState('');
     const [modalMessage, setModalMessage] = useState('');
     const [modalActions, setModalActions] = useState<{ text: string; onPress: () => void; style?: 'default' | 'cancel' | 'destructive' }[]>([]);
-    const videoRef = useRef<Video>(null);
 
     const video = getVideoById(id!);
     const isEnrolledInCourse = courseId ? isEnrolled(courseId) : false;
@@ -63,15 +62,10 @@ export default function VideoPlayerScreen() {
         setModalVisible(true);
     };
 
-    const handlePlayVideo = async () => {
-        try {
-            await videoRef.current?.playAsync();
-            setIsPlaying(true);
-        } catch {
-            showModal('Error', 'Failed to play video', [
-                { text: 'OK', onPress: () => setModalVisible(false) }
-            ]);
-        }
+    const handleVideoError = (error: string) => {
+        showModal('Error', `Failed to load video: ${error}`, [
+            { text: 'OK', onPress: () => setModalVisible(false) }
+        ]);
     };
 
     const handleResourcePress = (resource: { title: string; url: string; type: string }) => {
@@ -99,29 +93,26 @@ export default function VideoPlayerScreen() {
             />
 
             <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-                <View style={styles.videoContainer}>
-                    <Video
-                        ref={videoRef}
-                        style={styles.video}
-                        source={{ uri: video.videoUrl }}
-                        useNativeControls
-                        resizeMode={ResizeMode.CONTAIN}
+                {video.vimeoId ? (
+                    <VimeoPlayer
+                        videoId={video.vimeoId}
+                        quality='360p'
+                        autoPlay={false}
+                        shouldPlay={false}
                         isLooping={false}
-                        onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
-                            if (status.isLoaded && status.isPlaying !== undefined) {
-                                setIsPlaying(status.isPlaying);
-                            }
-                        }}
+                        onError={handleVideoError}
+                        style={styles.videoContainer}
                     />
-
-                    {!isPlaying && (
-                        <TouchableOpacity style={styles.playOverlay} onPress={handlePlayVideo}>
-                            <View style={styles.playButton}>
-                                <Play size={32} color={Colors.surface} fill={Colors.surface} />
-                            </View>
-                        </TouchableOpacity>
-                    )}
-                </View>
+                ) : (
+                    <DefaultVideoPlayer
+                        videoUrl={video.videoUrl}
+                        title={video.title}
+                        shouldPlay={false}
+                        isLooping={false}
+                        onError={handleVideoError}
+                        style={styles.videoContainer}
+                    />
+                )}
 
                 <View style={styles.content}>
                     <View style={styles.videoInfo}>
