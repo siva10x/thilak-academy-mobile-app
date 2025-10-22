@@ -39,7 +39,7 @@ const CourseContext = createContext<CourseContextType | undefined>(undefined);
 
 interface CourseProviderProps {
     children: React.ReactNode;
-    user?: { id: string } | null;
+    user?: { id: string; email?: string } | null;
 }
 
 export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }) => {
@@ -349,6 +349,9 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         }
 
         try {
+            // Check if this is the demo user - check both ID and email
+            const isDemoUser = user.email && user.email === 'app.demo.2026@gmail.com';
+
             // First, check if user already has an enrollment for this course
             const { data: existingEnrollments, error: checkError } = await supabase
                 .from('enrollments')
@@ -368,11 +371,11 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
                 if (existingEnrollment.status === 'active') {
                     Alert.alert('Already Enrolled', 'You are already enrolled in this course');
                     return;
-                } else if (existingEnrollment.status === 'pending') {
+                } else if (existingEnrollment.status === 'pending' && !isDemoUser) {
                     Alert.alert('Enrollment Pending', 'Your enrollment request is already pending approval');
                     return;
-                } else if (existingEnrollment.status === 'expired') {
-                    // Delete the expired enrollment and create a new pending one
+                } else if (existingEnrollment.status === 'expired' || (existingEnrollment.status === 'pending' && isDemoUser)) {
+                    // Delete the expired/pending enrollment and create a new one
                     const { error: deleteError } = await supabase
                         .from('enrollments')
                         .delete()
@@ -383,15 +386,17 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
                         throw deleteError;
                     }
 
-                    // Create new pending enrollment
+                    // Create new enrollment (active for demo user, pending for others)
+                    const enrollmentData = {
+                        user_id: user.id,
+                        course_id: courseId,
+                        status: isDemoUser ? 'active' : 'pending',
+                        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+                    };
+
                     const { error: insertError } = await supabase
                         .from('enrollments')
-                        .insert([{
-                            user_id: user.id,
-                            course_id: courseId,
-                            status: 'pending',
-                            expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-                        }] as any);
+                        .insert([enrollmentData] as any);
 
                     if (insertError) {
                         Alert.alert('Enrollment Error', 'Error creating new enrollment');
@@ -400,14 +405,16 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
                 }
             } else {
                 // No existing enrollment, create a new one
+                const enrollmentData = {
+                    user_id: user.id,
+                    course_id: courseId,
+                    status: isDemoUser ? 'active' : 'pending',
+                    expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
+                };
+
                 const { error: insertError } = await supabase
                     .from('enrollments')
-                    .insert([{
-                        user_id: user.id,
-                        course_id: courseId,
-                        status: 'pending',
-                        expiry_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year from now
-                    }] as any);
+                    .insert([enrollmentData] as any);
 
                 if (insertError) {
                     Alert.alert('Enrollment Error', 'Error creating enrollment');

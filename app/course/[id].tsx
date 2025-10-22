@@ -1,5 +1,6 @@
 import VideoCard from '@/components/VideoCard';
 import { Colors, Gradients } from '@/constants/colors';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCourses } from '@/contexts/CourseContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -10,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function CourseDetailScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const { user } = useAuth();
     const { courses, isEnrolled, enrollInCourse, getCourseVideos, isVideoPreviewEnabled, getEnrollmentStatus } = useCourses();
     const [videos, setVideos] = useState<any[]>([]);
     const [videosLoading, setVideosLoading] = useState(false);
@@ -49,6 +51,9 @@ export default function CourseDetailScreen() {
     }
 
     const handleEnroll = async () => {
+        // Check if this is the demo user
+        const isDemoUser = user?.email && user.email === 'app.demo.2026@gmail.com';
+
         Alert.alert(
             'Enroll in Course',
             `Do you want to enroll in "${course.title}"?`,
@@ -60,7 +65,11 @@ export default function CourseDetailScreen() {
                         setEnrolling(true);
                         try {
                             await enrollInCourse(course.id);
-                            Alert.alert('Enrollment Submitted', 'Your enrollment request has been submitted and is pending approval.');
+                            if (isDemoUser) {
+                                Alert.alert('Enrollment Successful! 🎉', 'You have been successfully enrolled in this course.');
+                            } else {
+                                Alert.alert('Enrollment Submitted', 'Your enrollment request has been submitted and is pending approval.');
+                            }
                         } catch {
                             Alert.alert('Error', 'Failed to enroll. Please try again.');
                         } finally {
