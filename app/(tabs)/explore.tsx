@@ -5,17 +5,19 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Filter, Search } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ExploreScreen() {
     const [searchQuery, setSearchQuery] = useState('');
+    const [refreshing, setRefreshing] = useState(false);
 
     const courseContext = useCourses();
     const courses = courseContext?.courses || [];
     const isEnrolled = courseContext?.isEnrolled || (() => false);
     const getEnrollmentStatus = courseContext?.getEnrollmentStatus || (() => null);
     const isLoading = courseContext?.isLoading || false;
+    const refreshData = courseContext?.refreshData;
 
     const filteredCourses = courses.filter(course =>
         course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -27,11 +29,32 @@ export default function ExploreScreen() {
         router.push(`/course/${courseId}`);
     };
 
+    const onRefresh = async () => {
+        setRefreshing(true);
+        try {
+            if (refreshData) {
+                await refreshData();
+            }
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView
                 style={styles.scrollView}
                 showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={[Colors.primary]}
+                        tintColor={Colors.primary}
+                    />
+                }
             >
                 <LinearGradient colors={Gradients.hero} style={styles.header}>
                     <View style={styles.headerContent}>

@@ -1,23 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { Course, CourseVideo, Enrollment, Video } from '@/types';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-
-// Cache configuration
-const CACHE_KEYS = {
-    COURSES: 'cached_courses',
-    VIDEOS: 'cached_videos',
-    COURSE_VIDEOS: 'cached_course_videos',
-    CACHE_TIMESTAMP: 'cache_timestamp',
-    CACHE_DURATION: 1000 * 60 * 60 * 24, // 24 hours in milliseconds
-    MAX_CACHE_SIZE: 50 * 1024 * 1024, // 50MB max cache size
-};
-
-interface CacheData<T> {
-    data: T[];
-    timestamp: number;
-}
 
 interface CourseContextType {
     courses: Course[];
@@ -32,7 +16,6 @@ interface CourseContextType {
     isVideoPreviewEnabled: (courseId: string, videoId: string) => boolean;
     getCourseIdForVideo: (videoId: string) => string | undefined;
     refreshData: () => Promise<void>;
-    clearCache: () => Promise<void>;
 }
 
 const CourseContext = createContext<CourseContextType | undefined>(undefined);
@@ -64,126 +47,7 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         }
     }, [user?.id]);
 
-    // Cache utility functions
-    const getCachedData = async function <T>(key: string): Promise<CacheData<T> | null> {
-        try {
-            const cached = await AsyncStorage.getItem(key);
-            return cached ? JSON.parse(cached) : null;
-        } catch (error) {
-            Alert.alert('Cache Error', `Error reading cache for ${key}`);
-            return null;
-        }
-    };
 
-    const setCachedData = async function <T>(key: string, data: T[]): Promise<void> {
-        try {
-            const cacheData: CacheData<T> = {
-                data,
-                timestamp: Date.now(),
-            };
-            await AsyncStorage.setItem(key, JSON.stringify(cacheData));
-            // Run cleanup after setting cache
-            await cleanupCache();
-        } catch (error) {
-            Alert.alert('Cache Error', `Error writing cache for ${key}`);
-        }
-    };
-
-    const isCacheValid = (timestamp: number): boolean => {
-        return Date.now() - timestamp < CACHE_KEYS.CACHE_DURATION;
-    };
-
-    // Helper function to revive dates from cached data
-    const reviveDatesFromCache = (courses: Course[]): Course[] => {
-        return courses.map(course => ({
-            ...course,
-            createdAt: new Date(course.createdAt),
-            updatedAt: new Date(course.updatedAt),
-        }));
-    };
-
-    const reviveVideoDatesFromCache = (videos: Video[]): Video[] => {
-        return videos.map(video => ({
-            ...video,
-            uploadedAt: new Date(video.uploadedAt),
-        }));
-    };
-
-    const clearCache = async () => {
-        try {
-            const keys = await AsyncStorage.getAllKeys();
-            const cacheKeys = keys.filter(key => key.startsWith('cache'));
-            await AsyncStorage.multiRemove(cacheKeys);
-        } catch (error) {
-            Alert.alert('Cache Error', 'Error clearing cache');
-        }
-    };
-
-    const getCacheInfo = async () => {
-        try {
-            const keys = await AsyncStorage.getAllKeys();
-            const cacheKeys = keys.filter(key => key.startsWith('cache'));
-            let totalSize = 0;
-            const cacheEntries = [];
-
-            for (const key of cacheKeys) {
-                const value = await AsyncStorage.getItem(key);
-                if (value) {
-                    const size = new Blob([value]).size;
-                    totalSize += size;
-                    cacheEntries.push({ key, size });
-                }
-            }
-
-            return {
-                totalEntries: cacheKeys.length,
-                totalSize,
-                maxSize: CACHE_KEYS.MAX_CACHE_SIZE,
-                entries: cacheEntries,
-            };
-        } catch (error) {
-            Alert.alert('Cache Error', 'Error getting cache info');
-            return null;
-        }
-    };
-
-    const cleanupCache = async () => {
-        try {
-            const cacheInfo = await getCacheInfo();
-            if (!cacheInfo) return;
-
-            if (cacheInfo.totalSize > CACHE_KEYS.MAX_CACHE_SIZE) {
-                // Remove oldest cache entries first
-                const keys = await AsyncStorage.getAllKeys();
-                const cacheKeys = keys.filter(key => key.startsWith('cache'));
-
-                // Sort by timestamp (oldest first)
-                const sortedKeys = await Promise.all(
-                    cacheKeys.map(async (key) => {
-                        const value = await AsyncStorage.getItem(key);
-                        const timestamp = value ? JSON.parse(value).timestamp : 0;
-                        return { key, timestamp };
-                    })
-                );
-
-                sortedKeys.sort((a, b) => a.timestamp - b.timestamp);
-
-                // Remove oldest entries until we're under the limit
-                let currentSize = cacheInfo.totalSize;
-                for (const entry of sortedKeys) {
-                    if (currentSize <= CACHE_KEYS.MAX_CACHE_SIZE) break;
-                    const value = await AsyncStorage.getItem(entry.key);
-                    if (value) {
-                        const size = new Blob([value]).size;
-                        await AsyncStorage.removeItem(entry.key);
-                        currentSize -= size;
-                    }
-                }
-            }
-        } catch (error) {
-            Alert.alert('Cache Error', 'Error cleaning up cache');
-        }
-    };
 
     const loadData = async () => {
         if (hasLoaded) {
@@ -201,17 +65,8 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         }
     };
 
-    const loadCourses = async (forceRefresh = false) => {
+    const loadCourses = async () => {
         try {
-            if (!forceRefresh) {
-                const cachedCourses = await getCachedData<Course>(CACHE_KEYS.COURSES);
-                if (cachedCourses && isCacheValid(cachedCourses.timestamp)) {
-                    const coursesWithDates = reviveDatesFromCache(cachedCourses.data);
-                    setCourses(coursesWithDates);
-                    return;
-                }
-            }
-
             const { data, error } = await supabase
                 .from('courses')
                 .select('*')
@@ -233,24 +88,13 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
             }));
 
             setCourses(formattedCourses);
-            await setCachedData(CACHE_KEYS.COURSES, formattedCourses);
         } catch (error) {
             Alert.alert('Loading Error', 'Error loading courses from Database');
         }
     };
 
-    const loadVideos = async (forceRefresh = false) => {
+    const loadVideos = async () => {
         try {
-            // Check cache first (unless force refresh)
-            if (!forceRefresh) {
-                const cachedVideos = await getCachedData<Video>(CACHE_KEYS.VIDEOS);
-                if (cachedVideos && isCacheValid(cachedVideos.timestamp)) {
-                    const videosWithDates = reviveVideoDatesFromCache(cachedVideos.data);
-                    setVideos(videosWithDates);
-                    return;
-                }
-            }
-
             const { data, error } = await supabase
                 .from('videos')
                 .select('*')
@@ -270,7 +114,6 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
             }));
 
             setVideos(formattedVideos);
-            await setCachedData(CACHE_KEYS.VIDEOS, formattedVideos);
         } catch (error) {
             Alert.alert('Loading Error', 'Error loading videos from Database');
         }
@@ -310,17 +153,8 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         }
     };
 
-    const loadCourseVideos = async (forceRefresh = false) => {
+    const loadCourseVideos = async () => {
         try {
-            if (!forceRefresh) {
-                const cached = await AsyncStorage.getItem(CACHE_KEYS.COURSE_VIDEOS);
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    setCourseVideos(parsed);
-                    return;
-                }
-            }
-
             const { data, error } = await supabase
                 .from('course_videos')
                 .select('course_id, video_id, display_order, preview_enabled')
@@ -337,7 +171,6 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
             }));
 
             setCourseVideos(courseVideoData);
-            await AsyncStorage.setItem(CACHE_KEYS.COURSE_VIDEOS, JSON.stringify(courseVideoData));
         } catch (error) {
             Alert.alert('Loading Error', 'Error loading course-video relationships from Database');
         }
@@ -528,11 +361,10 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         setIsLoading(true);
         setHasLoaded(false);
         try {
-            // Clear cache and reload fresh data
-            await clearCache();
-            await loadCourses(true);
-            await loadVideos(true);
-            await loadCourseVideos(true);
+            // Reload fresh data
+            await loadCourses();
+            await loadVideos();
+            await loadCourseVideos();
             await loadEnrollments(); // Add this to refresh enrollment data
             setHasLoaded(true);
         } catch (error) {
@@ -555,7 +387,6 @@ export const CourseProvider: React.FC<CourseProviderProps> = ({ children, user }
         isVideoPreviewEnabled,
         getCourseIdForVideo,
         refreshData,
-        clearCache,
     };
 
     return (

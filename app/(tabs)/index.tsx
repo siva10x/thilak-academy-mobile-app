@@ -19,7 +19,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
-    const { getEnrolledCourses, isLoading, isEnrolled, getEnrollmentStatus } = useCourses();
+    const { getEnrolledCourses, isLoading, isEnrolled, getEnrollmentStatus, refreshData } = useCourses();
     const [searchQuery, setSearchQuery] = useState('');
     const [refreshing, setRefreshing] = useState(false);
 
@@ -39,10 +39,13 @@ export default function HomeScreen() {
 
     const onRefresh = async () => {
         setRefreshing(true);
-        // Simulate refresh delay
-        setTimeout(() => {
+        try {
+            await refreshData();
+        } catch (error) {
+            console.error('Error refreshing data:', error);
+        } finally {
             setRefreshing(false);
-        }, 1000);
+        }
     };
 
     const handleCoursePress = (course: Course) => {
