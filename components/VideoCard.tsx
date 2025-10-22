@@ -55,7 +55,7 @@ export default function VideoCard({ video, onPress, isLocked = false, isPreviewE
                         </Text>
                     </View>
 
-                    {video.resources.length > 0 && (
+                    {video.resources && video.resources.length > 0 && (
                         <View style={styles.resourcesContainer}>
                             <FileText size={14} color={!isAccessible ? Colors.textLight : Colors.textSecondary} />
                             <Text style={[styles.resourcesText, !isAccessible && styles.lockedText]}>

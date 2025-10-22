@@ -129,7 +129,7 @@ export default function VideoPlayerScreen() {
                         </View>
                     </View>
 
-                    {video.resources.length > 0 && (
+                    {video.resources && video.resources.length > 0 && (
                         <View style={styles.section}>
                             <Text style={styles.sectionTitle}>Resources</Text>
                             <Text style={styles.sectionSubtitle}>
