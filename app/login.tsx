@@ -158,7 +158,7 @@ export default function LoginScreen() {
                             <View style={styles.logoGlow} />
                         </View>
                         <Text style={styles.appTitle}>Thilak Sir Academy</Text>
-                        <Text style={styles.subtitle}>Unlock Your Potential</Text>
+                        <Text style={styles.subtitle}>Rise with Thilak Sir 🚀</Text>
                         {showOtpInput && (
                             <Text style={styles.welcomeMessage}>
                                 We've sent a verification code to {email}
