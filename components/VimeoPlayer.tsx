@@ -1,5 +1,5 @@
-import { ResizeMode, Video } from 'expo-av';
-import React, { useEffect, useRef, useState } from 'react';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Dimensions,
@@ -62,9 +62,14 @@ const VimeoPlayer: React.FC<VimeoPlayerProps> = ({
     const [videoLoading, setVideoLoading] = useState(false);
     const [showVideo, setShowVideo] = useState(autoPlay);
     const [videoShouldPlay, setVideoShouldPlay] = useState(shouldPlay);
-    const [playbackRate, setPlaybackRate] = useState(1.0);
-    const [showSpeedControl, setShowSpeedControl] = useState(false);
-    const videoRef = useRef<Video>(null);
+
+    // Create video player instance
+    const player = useVideoPlayer(videoData?.url || '', (player) => {
+        player.loop = isLooping;
+        if (videoShouldPlay) {
+            player.play();
+        }
+    });
 
     useEffect(() => {
         const fetchVideoData = async () => {
@@ -88,27 +93,46 @@ const VimeoPlayer: React.FC<VimeoPlayerProps> = ({
         }
     }, [videoId, quality]);
 
-    // Sync external shouldPlay prop with internal state
+    // Update player when video data changes
     useEffect(() => {
+        const updateVideo = async () => {
+            if (videoData?.url && player) {
+                try {
+                    await player.replaceAsync(videoData.url);
+                    setVideoLoading(false);
+                    if (videoShouldPlay) {
+                        player.play();
+                    }
+                    onLoad?.();
+                } catch (error) {
+                    console.error('Error loading video:', error);
+                    setVideoLoading(false);
+                }
+            }
+        };
+
+        updateVideo();
+    }, [videoData?.url, player, videoShouldPlay, onLoad]);
+
+    // Sync external shouldPlay prop with player
+    useEffect(() => {
+        if (player) {
+            if (shouldPlay) {
+                player.play();
+            } else {
+                player.pause();
+            }
+        }
         setVideoShouldPlay(shouldPlay);
-    }, [shouldPlay]);
+    }, [shouldPlay, player]);
 
     const handlePlayPress = () => {
         setShowVideo(true);
         setVideoShouldPlay(true);
+        if (player) {
+            player.play();
+        }
         onLoadStart?.();
-    };
-
-    const handleVideoLoad = () => {
-        setVideoLoading(false);
-        setVideoShouldPlay(true); // Auto-play after video loads
-        onLoad?.();
-    };
-
-    const handleVideoError = (error: any) => {
-        const errorMessage = 'Failed to play video';
-        setError(errorMessage);
-        onError?.(errorMessage);
     };
 
     if (loading) {
@@ -185,61 +209,12 @@ const VimeoPlayer: React.FC<VimeoPlayerProps> = ({
                 </View>
             )}
 
-            {/* Custom Speed Control Button */}
-            <TouchableOpacity
-                style={styles.speedButton}
-                onPress={() => setShowSpeedControl(!showSpeedControl)}
-            >
-                <Text style={styles.speedButtonText}>{playbackRate}x</Text>
-            </TouchableOpacity>
-
-            {/* Speed Selection Overlay */}
-            {showSpeedControl && (
-                <View style={styles.speedControlOverlay}>
-                    <View style={styles.speedControlContainer}>
-                        <Text style={styles.speedControlTitle}>Playback Speed</Text>
-                        {[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map((rate) => (
-                            <TouchableOpacity
-                                key={rate}
-                                style={[
-                                    styles.speedOption,
-                                    playbackRate === rate && styles.speedOptionActive
-                                ]}
-                                onPress={() => {
-                                    setPlaybackRate(rate);
-                                    setShowSpeedControl(false);
-                                }}
-                            >
-                                <Text style={[
-                                    styles.speedOptionText,
-                                    playbackRate === rate && styles.speedOptionTextActive
-                                ]}>
-                                    {rate}x {rate === 1.0 ? '(Normal)' : ''}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                        <TouchableOpacity
-                            style={styles.speedCloseButton}
-                            onPress={() => setShowSpeedControl(false)}
-                        >
-                            <Text style={styles.speedCloseButtonText}>Close</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-            <Video
-                ref={videoRef}
+            <VideoView
                 style={[styles.video, { height: videoHeight }]}
-                source={{ uri: videoData.url }}
-                shouldPlay={videoShouldPlay}
-                isLooping={isLooping}
-                rate={playbackRate}
-                resizeMode={ResizeMode.CONTAIN}
-                useNativeControls
-                onLoad={handleVideoLoad}
-                onError={handleVideoError}
-                onLoadStart={() => setVideoLoading(true)}
+                player={player}
+                fullscreenOptions={{ enable: true }}
+                allowsPictureInPicture
+                contentFit="contain"
             />
             <View style={styles.videoInfo}>
                 <Text style={styles.videoTitle} numberOfLines={2}>
@@ -364,77 +339,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
-    },
-    speedButton: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        zIndex: 2,
-    },
-    speedButtonText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    speedControlOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 3,
-    },
-    speedControlContainer: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 12,
-        padding: 20,
-        minWidth: 200,
-        maxWidth: 300,
-    },
-    speedControlTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginBottom: 16,
-    },
-    speedOption: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        marginBottom: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    speedOptionActive: {
-        backgroundColor: '#0066cc',
-    },
-    speedOptionText: {
-        color: '#fff',
-        fontSize: 16,
-        textAlign: 'center',
-    },
-    speedOptionTextActive: {
-        fontWeight: '600',
-    },
-    speedCloseButton: {
-        marginTop: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        backgroundColor: '#333',
-        borderRadius: 8,
-    },
-    speedCloseButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        textAlign: 'center',
-        fontWeight: '500',
     },
 });
 

@@ -1,7 +1,7 @@
 import { Colors } from '@/constants/colors';
-import { AVPlaybackStatus, ResizeMode, Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { Play } from 'lucide-react-native';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
     StyleSheet,
@@ -35,34 +35,60 @@ const DefaultVideoPlayer: React.FC<DefaultVideoPlayerProps> = ({
 }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [playbackRate, setPlaybackRate] = useState(1.0);
-    const [showSpeedControl, setShowSpeedControl] = useState(false);
-    const videoRef = useRef<Video>(null);
+
+    // Create video player instance
+    const player = useVideoPlayer(videoUrl, (player) => {
+        player.loop = isLooping || false;
+        if (shouldPlay) {
+            player.play();
+        }
+    });
+
+    // Listen to player status changes
+    useEffect(() => {
+        if (player) {
+            const subscription = player.addListener('statusChange', (payload) => {
+                const { status, error } = payload;
+
+                if (error) {
+                    onError?.(error.message || 'Video player error');
+                    setIsLoading(false);
+                    return;
+                }
+
+                // Handle different status values
+                setIsLoading(false);
+                onLoad?.();
+            });
+
+            return () => {
+                subscription?.remove();
+            };
+        }
+    }, [player, onError, onLoad, onLoadStart]);
+
+    // Update player when props change
+    useEffect(() => {
+        if (player) {
+            if (shouldPlay) {
+                player.play();
+            } else {
+                player.pause();
+            }
+        }
+    }, [shouldPlay, player]);
+
+
 
     const handlePlayVideo = async () => {
         try {
-            await videoRef.current?.playAsync();
-            setIsPlaying(true);
+            if (player) {
+                await player.play();
+                setIsPlaying(true);
+            }
         } catch (error) {
             const errorMessage = 'Failed to play video';
             onError?.(errorMessage);
-        }
-    };
-
-    const handleVideoLoad = () => {
-        setIsLoading(false);
-        onLoad?.();
-    };
-
-    const handleVideoError = (error: any) => {
-        const errorMessage = 'Failed to load video';
-        setIsLoading(false);
-        onError?.(errorMessage);
-    };
-
-    const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
-        if (status.isLoaded && status.isPlaying !== undefined) {
-            setIsPlaying(status.isPlaying);
         }
     };
 
@@ -72,66 +98,13 @@ const DefaultVideoPlayer: React.FC<DefaultVideoPlayerProps> = ({
     return (
         <View style={[styles.container, style]}>
             <View style={[styles.videoContainer, { height: videoHeight }]}>
-                <Video
-                    ref={videoRef}
+                <VideoView
                     style={styles.video}
-                    source={{ uri: videoUrl }}
-                    useNativeControls
-                    resizeMode={ResizeMode.CONTAIN}
-                    isLooping={isLooping}
-                    shouldPlay={shouldPlay}
-                    rate={playbackRate}
-                    onLoad={handleVideoLoad}
-                    onError={handleVideoError}
-                    onLoadStart={() => {
-                        setIsLoading(true);
-                        onLoadStart?.();
-                    }}
-                    onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
+                    player={player}
+                    fullscreenOptions={{ enable: true }}
+                    allowsPictureInPicture
+                    contentFit="contain"
                 />
-
-                {/* Custom Speed Control Button */}
-                <TouchableOpacity
-                    style={styles.speedButton}
-                    onPress={() => setShowSpeedControl(!showSpeedControl)}
-                >
-                    <Text style={styles.speedButtonText}>{playbackRate}x</Text>
-                </TouchableOpacity>
-
-                {/* Speed Selection Overlay */}
-                {showSpeedControl && (
-                    <View style={styles.speedControlOverlay}>
-                        <View style={styles.speedControlContainer}>
-                            <Text style={styles.speedControlTitle}>Playback Speed</Text>
-                            {[0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0].map((rate) => (
-                                <TouchableOpacity
-                                    key={rate}
-                                    style={[
-                                        styles.speedOption,
-                                        playbackRate === rate && styles.speedOptionActive
-                                    ]}
-                                    onPress={() => {
-                                        setPlaybackRate(rate);
-                                        setShowSpeedControl(false);
-                                    }}
-                                >
-                                    <Text style={[
-                                        styles.speedOptionText,
-                                        playbackRate === rate && styles.speedOptionTextActive
-                                    ]}>
-                                        {rate}x {rate === 1.0 ? '(Normal)' : ''}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                            <TouchableOpacity
-                                style={styles.speedCloseButton}
-                                onPress={() => setShowSpeedControl(false)}
-                            >
-                                <Text style={styles.speedCloseButtonText}>Close</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                )}
 
                 {!isPlaying && !isLoading && (
                     <TouchableOpacity style={styles.playOverlay} onPress={handlePlayVideo}>
@@ -214,77 +187,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
-    },
-    speedButton: {
-        position: 'absolute',
-        top: 16,
-        right: 16,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        zIndex: 2,
-    },
-    speedButtonText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    speedControlOverlay: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 3,
-    },
-    speedControlContainer: {
-        backgroundColor: '#1a1a1a',
-        borderRadius: 12,
-        padding: 20,
-        minWidth: 200,
-        maxWidth: 300,
-    },
-    speedControlTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-        textAlign: 'center',
-        marginBottom: 16,
-    },
-    speedOption: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        marginBottom: 8,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    },
-    speedOptionActive: {
-        backgroundColor: '#0066cc',
-    },
-    speedOptionText: {
-        color: '#fff',
-        fontSize: 16,
-        textAlign: 'center',
-    },
-    speedOptionTextActive: {
-        fontWeight: '600',
-    },
-    speedCloseButton: {
-        marginTop: 8,
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        backgroundColor: '#333',
-        borderRadius: 8,
-    },
-    speedCloseButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        textAlign: 'center',
-        fontWeight: '500',
     },
 });
 
