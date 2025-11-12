@@ -150,7 +150,7 @@ export default function LoginScreen() {
                         <View style={styles.logoContainer}>
                             <View style={styles.logoBackground}>
                                 <Image
-                                    source={require('../assets/images/thilak_logo.jpg')}
+                                    source={require('../assets/images/icon.png')}
                                     style={styles.logoImage}
                                     resizeMode="contain"
                                 />
